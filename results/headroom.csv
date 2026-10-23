@@ -1,4 +1,4 @@
 approach,cv_pr_auc,cv_pr_auc_std,time,gain_vs_grid
 "Hist. Gradient Boosting, grid search (8 candidates)",0.8988348108939116,0.0026453293934848945,,0.0
-"Hist. Gradient Boosting, random search (40 candidates, 7 hyper-parameters)",0.898579491481782,0.0021739451158670118,149.350323304001,-0.0002553194121296398
-Stacking (Hist. GB + Random Forest + Logistic Regression),0.9002152409798791,0.003177202266369293,173.53451817600035,0.0013804300859675545
+"Hist. Gradient Boosting, random search (40 candidates, 7 hyper-parameters)",0.898579491481782,0.0021739451158670118,120.72413897700244,-0.0002553194121296398
+Stacking (Hist. GB + Random Forest + Logistic Regression),0.9002152409798791,0.003177202266369293,148.975284027998,0.0013804300859675545

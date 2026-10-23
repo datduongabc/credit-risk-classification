@@ -3,7 +3,7 @@
 
 \subsection{Setup}
 All experiments run in the Colab notebook with scikit-learn 1.9, imbalanced-learn 0.14, PyTorch 2.14 and pytorch-tabnet 4.1, with every random seed fixed to 42.
-The complete notebook runs in about 28 minutes on two CPU cores, the configuration of a standard Colab runtime.
+The complete notebook runs in about 25 minutes on two modern CPU cores and in about 1 hour 50 minutes on a free Colab runtime; the training times in the tables refer to the former.
 After cleaning, the \num{32416} loans are split into \num{25932} training and \num{6484} test loans, both with a 21.8\% default rate.
 Unless stated otherwise, scores are means over 5 stratified cross-validation folds of the training set, and ``sd'' is the standard deviation across folds.
 In the ablation tables, F2, recall and precision are measured at the default threshold of 0.5, while PR-AUC and ROC-AUC do not depend on a threshold.
@@ -168,8 +168,9 @@ Removing the class weighting barely changes PR-AUC but lowers recall at the defa
 \subsubsection{TabNet and comparison with the traditional pipeline}
 \Cref{tab:deep} summarizes the deep models on the test set.
 The reference MLP reaches a PR-AUC of 0.864, better than every linear model and comparable to a single decision tree, but clearly below the random forest (0.893) and gradient boosting (0.904).
-TabNet is weaker (0.821) and needs several times longer to train.
-Its attention masks (\cref{fig:tabnet}) nonetheless agree with the other importance measures on the dominant role of the grade, the loan-to-income ratio and home ownership.
+TabNet reaches the same PR-AUC (0.864) with a higher precision at its tuned threshold, but takes about three times longer to train and has more hyper-parameters to tune.
+Its attention masks (\cref{fig:tabnet}) agree with the permutation importances on the leading role of the loan-to-income ratio and home ownership.
+They spread the remaining weight differently: the interest rate takes over much of the grade's information, since the two are strongly correlated, and the credit-history length receives more weight than the other measures give it.
 This ranking agrees with large tabular benchmarks, in which gradient-boosted trees remain ahead of deep networks on medium-sized tables of heterogeneous features \cite{grinsztajn2022}.
 A logistic regression trained on the MLP's 64-dimensional embeddings reaches a PR-AUC of 0.863, almost exactly the network's 0.864, which shows that the learned representation, not the final layer, carries the network's advantage over the linear models.
 

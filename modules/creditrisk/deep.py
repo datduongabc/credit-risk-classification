@@ -224,6 +224,9 @@ class TabNetWrapper:
             cat_emb_dim=4,
             optimizer_params={"lr": 2e-2},
             seed=self.seed,
+            # GPU kernels are not bit-reproducible with the CPU ones, so a GPU runtime would train a
+            # different model than the one reported; the table is small enough for the CPU.
+            device_name="cpu",
             verbose=0,
         )
         t0 = time.perf_counter()

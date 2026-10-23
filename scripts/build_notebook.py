@@ -45,8 +45,8 @@ Task: predict whether a borrower will **default** on a loan (`loan_status = 1`) 
 
 Source code: {REPO_URL.removesuffix('.git')}
 
-**Runtime:** about 30 minutes on a standard Colab CPU runtime. *Runtime -> Run all* runs everything with no
-manual steps. No personal cloud storage is mounted. The data comes from a public URL.
+**Runtime:** about 30 minutes on two modern CPU cores and up to about 2 hours on a free Colab runtime (no GPU
+needed). *Runtime -> Run all* runs everything with no manual steps. No personal cloud storage is mounted. The data comes from a public URL.
 """
 )
 
