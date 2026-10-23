@@ -2,52 +2,270 @@
 \label{sec:experiments}
 
 \subsection{Setup}
-SKELETON
+All experiments run in the Colab notebook with scikit-learn 1.9, imbalanced-learn 0.14, PyTorch 2.14 and pytorch-tabnet 4.1, with every random seed fixed to 42.
+The complete notebook runs in about 28 minutes on two CPU cores, the configuration of a standard Colab runtime.
+After cleaning, the \num{32416} loans are split into \num{25932} training and \num{6484} test loans, both with a 21.8\% default rate.
+Unless stated otherwise, scores are means over 5 stratified cross-validation folds of the training set, and ``sd'' is the standard deviation across folds.
+In the ablation tables, F2, recall and precision are measured at the default threshold of 0.5, while PR-AUC and ROC-AUC do not depend on a threshold.
+
+\subsection{Handling impossible values}
+\label{subsec:exp_impossible}
+\Cref{tab:impossible} compares six ways of treating the seven impossible ages and employment lengths.
+All of them lie within about 0.001 PR-AUC of each other, far below the fold-to-fold standard deviation, which is expected because only seven training rows (and no test row) are affected.
+Since performance cannot separate the options, the choice rests on methodology.
+Turning the values into missing values and letting the pipeline impute them keeps the other ten valid columns of each row, learns the fill value inside each training fold (no leakage), works with any configured imputer, and is the only option that also applies to a new applicant at prediction time, where a row cannot be dropped.
+
+\input{../generated/tab_impossible.tex}
 
 \subsection{Ablation studies of the traditional pipeline}
+\label{subsec:ablation}
+Each suite changes one step of the pipeline and keeps the others at a reference configuration: logistic regression with balanced class weights and standard scaling, k-NN with standard scaling, or random forest without scaling.
+
 \subsubsection{Imputation}
+\Cref{tab:suite_imputation} shows that the five imputers are practically indistinguishable: all differences are below 0.001 PR-AUC for logistic regression and below 0.0015 for the random forest, well inside one standard deviation.
+With only 2.75\% and 9.56\% of the values missing in two columns, the imputation method has little room to matter.
+The grade-wise median is the best or tied for best for both models and is much cheaper than KNN or MICE, so it is kept.
+Missing-value indicators help logistic regression slightly (+0.0014) but not the forest, consistent with the informative missingness of the employment length found in \cref{subsec:missing}.
+
 \input{../generated/tab_suite_imputation.tex}
-\begin{figure}[H]\centering\includegraphics[width=0.9\linewidth]{suite_imputation.pdf}\caption{Imputation.}\label{fig:suite_imputation}\end{figure}
+
 \subsubsection{Scaling}
+Scaling is the step with the largest effect (\cref{tab:suite_scaling,fig:suite_scaling}).
+Without it, the RBF kernel and the Euclidean distance of k-NN are dominated by income, whose values are four orders of magnitude larger than the ratios.
+Standardization raises the k-NN PR-AUC from 0.615 to 0.778.
+The unscaled SVM was too slow to converge on two cores and was excluded; among the scaled variants, the SVM prefers standardization (0.834) and robust scaling (0.830) to min-max scaling (0.797 and 0.804).
+Min-max scaling squeezes the bulk of the skewed features into a tiny interval because the bounds are set by the extremes.
+For logistic regression, every scaler gives the same result (0.699 to 0.700) because the solution of a regularized linear model changes only slightly with the feature scale, but leaving the features unscaled hurts (0.665) because the regularization then penalizes the coefficients unevenly and the solver converges poorly.
+
 \input{../generated/tab_suite_scaling.tex}
-\begin{figure}[H]\centering\includegraphics[width=0.9\linewidth]{suite_scaling.pdf}\caption{Scaling.}\label{fig:suite_scaling}\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.9\linewidth]{suite_scaling.pdf}
+  \caption{Effect of the scaler on PR-AUC (5-fold CV; error bars show one standard deviation).}
+  \label{fig:suite_scaling}
+\end{figure}
+
 \subsubsection{Outliers and feature engineering}
+\Cref{tab:suite_outlier_fe} crosses the three outlier treatments with the optional engineered features.
+For logistic regression, IQR clipping combined with feature engineering is the best configuration (0.722 against 0.699 for the baseline, a gain of about five standard deviations).
+The log transform alone beats clipping alone, but once the engineered features already provide log-income and log-amount, clipping wins: it removes the leverage of the remaining extreme raw values without bending the whole distribution.
+For the random forest, the three treatments differ by less than 0.0005, because a tree splits on thresholds and any monotone transformation leaves its splits unchanged; feature engineering adds a small gain (+0.0025).
+
+Removing outliers instead of clipping them was rejected for a measurable reason: 17.2\% of the training rows contain at least one IQR outlier, and 75.9\% of the rows whose loan-to-income ratio is an outlier defaulted.
+Deleting them would discard precisely the most informative defaulters, and a deployed model cannot refuse to score such applicants anyway.
+
 \input{../generated/tab_suite_outlier_fe.tex}
-\begin{figure}[H]\centering\includegraphics[width=0.9\linewidth]{suite_outlier_fe.pdf}\caption{Outliers.}\label{fig:suite_outlier_fe}\end{figure}
-\subsubsection{Encoding}
+
+\subsubsection{Encoding of the loan grade}
+\Cref{tab:suite_encoding} shows that one-hot encoding of the grade helps logistic regression markedly (0.717 against 0.699).
+The ordinal code forces a linear effect per grade step, whereas the default rate jumps between grades C and D (\cref{fig:categorical}).
+Tree models and k-NN are slightly better with the compact ordinal code, which preserves the order and lets a tree place the split between C and D itself.
+
 \input{../generated/tab_suite_encoding.tex}
-\subsubsection{Dimensionality}
+
+\subsubsection{Dimensionality reduction and feature selection}
+\label{subsec:exp_dim}
+PCA lowers the PR-AUC of every model as soon as it discards variance (\cref{tab:suite_dimensionality,fig:suite_dimensionality}), and the loss grows as fewer components are kept; at 99\% it keeps almost every dimension and is merely neutral.
+The damage is largest for the random forest (from 0.883 to 0.766 at 80\%), whose axis-aligned splits lose the original, individually meaningful features when they are rotated into components.
+Univariate selection with mutual information hurts logistic regression and the random forest, because it ranks features one at a time and discards those that matter mainly in interaction with others.
+For k-NN, keeping the 15 most informative features gives a gain of 0.005 that is within one standard deviation, so no reliable improvement either.
+With about twenty encoded features and only moderate redundancy, there is nothing to gain from reducing the dimension, so neither step is used in the final pipelines.
+
 \input{../generated/tab_suite_dimensionality.tex}
-\begin{figure}[H]\centering\includegraphics[width=0.9\linewidth]{suite_dimensionality.pdf}\caption{Dimensionality.}\label{fig:suite_dimensionality}\end{figure}
-\subsubsection{Imbalance}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{suite_dimensionality.pdf}
+  \caption{PCA and feature selection lower PR-AUC for every model (5-fold CV).}
+  \label{fig:suite_dimensionality}
+\end{figure}
+
+\subsubsection{Class imbalance}
+The imbalance strategies barely change PR-AUC (\cref{tab:suite_imbalance}), which is expected: re-weighting or resampling mostly shifts the predicted probabilities, and PR-AUC ignores the threshold.
+They change the operating point instead.
+At the default threshold of 0.5, logistic regression without any remedy finds only half of the defaulters (recall 0.505), and class weights raise its recall to 0.780 and its F2 from 0.539 to 0.706.
+For the gradient-boosting model, class weights give the best F2 (0.792) with the best PR-AUC.
+SMOTE never beats class weights, and random under-sampling costs PR-AUC for the tree models because it throws away three quarters of the non-default examples.
+Because the final models tune their decision threshold for F2 anyway (\cref{subsec:protocol}), class weighting becomes a hyper-parameter of the grid search rather than a fixed choice.
+
 \input{../generated/tab_suite_imbalance.tex}
-\begin{figure}[H]\centering\includegraphics[width=0.9\linewidth]{suite_imbalance.pdf}\caption{Imbalance.}\label{fig:suite_imbalance}\end{figure}
 
-\subsection{Tuned models}
+\subsection{Tuned comparison of the traditional models}
+\label{subsec:exp_tuned}
+Following the ablations, the scale-sensitive models use grade-wise imputation, engineered features, IQR clipping, a one-hot grade and standardization, and the tree models use grade-wise imputation, engineered features and the ordinal grade without scaling.
+\Cref{tab:tuning} lists the grid-search results and \cref{tab:test_traditional} the test-set results at the F2-tuned threshold.
+
 \input{../generated/tab_tuning.tex}
+
 \input{../generated/tab_test_traditional.tex}
-\begin{figure}[H]\centering\includegraphics[width=\linewidth]{roc_pr_traditional.pdf}\caption{ROC.}\label{fig:roc_trad}\end{figure}
-\begin{figure}[H]\centering\includegraphics[width=\linewidth]{confusion_traditional.pdf}\caption{Confusion.}\label{fig:confusion}\end{figure}
-\begin{figure}[H]\centering\includegraphics[width=0.7\linewidth]{importance_best.pdf}\caption{Importance.}\label{fig:importance}\end{figure}
 
-\subsection{Deep learning}
+Histogram-based gradient boosting is the best model on every ranking metric, with a test PR-AUC of \BestPrAuc{} and ROC-AUC of 0.946.
+At its F2-tuned threshold it detects \BestRecall{} of the defaulters (recall) with a precision of \BestPrecision{}.
+The random forest follows closely and, at its own threshold, trades some recall for much higher precision.
+The gap between the tree ensembles and the linear models (PR-AUC 0.75) is large and consistent across folds, which confirms the EDA finding that default risk depends on interactions, for example between the loan-to-income ratio and income, that a linear decision function cannot express.
+The two SVMs expose a decision function rather than a probability, so their thresholds are margins and can be negative.
+Gaussian Naive Bayes is the weakest model: its independence and Gaussian assumptions are violated by the strongly correlated, skewed features.
+The cross-validation and test PR-AUC agree closely for every model, so the test results are not the product of a lucky split.
+
+\Cref{fig:roc_trad} shows the ROC and precision-recall curves and \cref{fig:confusion} the confusion matrices at the tuned thresholds.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{roc_pr_traditional.pdf}
+  \caption{ROC (left) and precision-recall (right) curves of the tuned traditional models on the test set.}
+  \label{fig:roc_trad}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{confusion_traditional.pdf}
+  \caption{Confusion matrices on the test set at each model's F2-tuned threshold.}
+  \label{fig:confusion}
+\end{figure}
+
+\subsubsection{Is there headroom left?}
+Several grid optima lie on the edge of their grids (\cref{tab:tuning}), which could indicate a search space that is too narrow.
+\Cref{tab:headroom} tests this for the best model family with two stronger optimizers: a random search over seven gradient-boosting hyper-parameters with 40 candidates, and a stacked ensemble of the tuned gradient-boosting, random-forest and logistic-regression models.
+Neither improves the cross-validated PR-AUC by more than its standard deviation.
+The model sits on a plateau, so the remaining errors come from the overlap of the classes in feature space rather than from insufficient optimization, and the simpler grid-searched model is kept.
+
+\input{../generated/tab_headroom.tex}
+
+\subsubsection{Feature importance and error analysis}
+The permutation importance of the best model (\cref{fig:importance}) ranks the loan-to-income ratio, home ownership, income and the loan grade as the most influential features, followed by the loan intent, in line with the mutual-information ranking of the EDA.
+The interest rate matters little once the grade is known, because the two are almost redundant ($\rho = 0.95$), and age and credit-history length contribute almost nothing.
+The 211 false negatives at the tuned threshold are dominated by applicants who look safe: 71\% of them have grade A or B (against 33\% of the true positives), and their median loan-to-income ratio is 0.14 (against 0.27).
+These borrowers default for reasons that the recorded features do not capture.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.75\linewidth]{importance_best.pdf}
+  \caption{Permutation importance of the best traditional model on the test set (drop in PR-AUC).}
+  \label{fig:importance}
+\end{figure}
+
+\subsection{Deep learning pipeline}
+\label{subsec:exp_dl}
+
+\subsubsection{MLP variants}
+\Cref{tab:mlp} compares seven MLP variants.
+The validation PR-AUC, measured on the internal validation split, is the selection criterion; the test columns are reported for reference.
+The variants lie within a narrow band.
+Entity embeddings and one-hot inputs perform similarly here, because the categorical variables have at most seven levels; embeddings pay off mainly with high-cardinality categories.
+Removing the class weighting barely changes PR-AUC but lowers recall at the default threshold, mirroring the traditional models, and the engineered features help the network less than they help logistic regression, because the network can learn similar nonlinear transformations itself.
+\Cref{fig:mlp_training} shows a typical training curve: the validation PR-AUC saturates within a few dozen epochs and early stopping restores the best weights.
+
 \input{../generated/tab_mlp.tex}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.7\linewidth]{mlp_training.pdf}
+  \caption{Training loss and validation PR-AUC of the reference MLP.}
+  \label{fig:mlp_training}
+\end{figure}
+
+\subsubsection{TabNet and comparison with the traditional pipeline}
+\Cref{tab:deep} summarizes the deep models on the test set.
+The reference MLP reaches a PR-AUC of 0.864, better than every linear model and comparable to a single decision tree, but clearly below the random forest (0.893) and gradient boosting (0.904).
+TabNet is weaker (0.821) and needs several times longer to train.
+Its attention masks (\cref{fig:tabnet}) nonetheless agree with the other importance measures on the dominant role of the grade, the loan-to-income ratio and home ownership.
+This ranking agrees with large tabular benchmarks, in which gradient-boosted trees remain ahead of deep networks on medium-sized tables of heterogeneous features \cite{grinsztajn2022}.
+A logistic regression trained on the MLP's 64-dimensional embeddings reaches a PR-AUC of 0.863, almost exactly the network's 0.864, which shows that the learned representation, not the final layer, carries the network's advantage over the linear models.
+
 \input{../generated/tab_deep.tex}
-\begin{figure}[H]\centering\includegraphics[width=0.6\linewidth]{mlp_training.pdf}\caption{MLP.}\label{fig:mlp_training}\end{figure}
-\begin{figure}[H]\centering\includegraphics[width=0.6\linewidth]{tabnet_importance.pdf}\caption{TabNet.}\label{fig:tabnet}\end{figure}
-\begin{figure}[H]\centering\includegraphics[width=\linewidth]{roc_pr_traditional_vs_deep.pdf}\caption{Trad vs deep.}\label{fig:roc_deep}\end{figure}
 
-\subsection{Bayesian network}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{roc_pr_traditional_vs_deep.pdf}
+  \caption{Best traditional model, logistic regression, MLP and TabNet on the test set.}
+  \label{fig:roc_deep}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.65\linewidth]{tabnet_importance.pdf}
+  \caption{TabNet's attention-based feature importance.}
+  \label{fig:tabnet}
+\end{figure}
+
+\subsection{Bayesian networks}
+\label{subsec:exp_bn}
+
+\subsubsection{Discretization and smoothing}
+The number of quantile bins and the Dirichlet pseudo-count $\alpha$ are chosen separately for each structure on a validation split of the training set (\cref{tab:bn_sens}).
+Coarse bins (3 or 5) discard too much information for every structure.
+Beyond that, the structures disagree: TAN and the expert network peak at 8 bins, while Naive Bayes and hill climbing still improve at 12.
+The reason is model complexity.
+A TAN node has the class and another feature as parents, so its CPT grows with the square of the number of bins and starts to overfit sooner, whereas hill climbing is protected by the BIC penalty, which simply removes edges when the CPTs become too large.
+A small pseudo-count ($\alpha = 0.1$) is preferred by the structures with large CPTs, because a large $\alpha$ pulls the many sparsely observed rows of their tables toward the uniform distribution.
+An earlier version of the experiment selected a single setting for all structures by averaging; it chose 12 bins and reduced the test PR-AUC of TAN by 0.03, which is why the selection is made per structure.
+
 \input{../generated/tab_bn_sensitivity.tex}
-\input{../generated/tab_bn_results.tex}
-\begin{figure}[H]\centering\includegraphics[width=\linewidth]{bn_structures.pdf}\caption{Structures.}\label{fig:bn_structures}\end{figure}
-\begin{figure}[H]\centering\includegraphics[width=0.6\linewidth]{bn_bic_trace.pdf}\caption{BIC.}\label{fig:bic}\end{figure}
-\input{../generated/tab_bn_queries.tex}
-\input{../generated/tab_bn_inference.tex}
-\input{../generated/tab_bn_acceptance.tex}
-\begin{figure}[H]\centering\includegraphics[width=\linewidth]{bn_inference_error.pdf}\caption{Inference.}\label{fig:bn_inference}\end{figure}
 
-\subsection{Overall}
+\subsubsection{Structures and classification}
+\Cref{fig:bn_structures} shows the four structures and \cref{tab:bn_results} their test performance.
+TAN is the best network classifier, and it is also the only structure whose design targets the prediction of the class.
+Test log-likelihoods are only comparable between networks that share a discretization.
+Among the 12-bin networks, hill climbing models the joint distribution far better than Naive Bayes (a log-likelihood of \num{-103692} against \num{-136946}) yet classifies only slightly better.
+Among the 8-bin networks, the expert DAG has the higher likelihood but TAN the better classification.
+BIC rewards a good model of the \emph{whole} joint distribution; most of the learned edges describe relations among the features, and the class ends up with few parents.
+This reproduces the observation of Friedman et al.~\cite{friedman1997bnc} that structures selected by a global score are not necessarily good classifiers.
+The expert network is competitive with TAN despite having only 12 edges, which shows that the domain story captures the main drivers of default.
+Naive Bayes is the weakest structure, as its conditional-independence assumption is contradicted by the strong correlations among the features.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{bn_structures.pdf}
+  \caption{The four Bayesian-network structures (DEFAULT is the class node).}
+  \label{fig:bn_structures}
+\end{figure}
+
+\input{../generated/tab_bn_results.tex}
+
+All networks are clearly weaker than the gradient-boosted trees, mainly because discretization throws away within-bin information and because each CPT can only express interactions among a node and its few parents.
+In return, a Bayesian network handles missing features natively, answers any conditional query, and exposes its assumptions explicitly.
+
+\subsubsection{Probabilistic reasoning}
+\Cref{tab:bn_queries} answers predictive and diagnostic queries exactly by variable elimination and compares them with the empirical frequencies in the training data.
+Because the class is the root of TAN and a parent of every feature, TAN reproduces every single-evidence query almost exactly, both predictive ones such as $P(\text{default} \mid \text{grade}=A)$ and diagnostic ones such as $P(\text{past default} \mid \text{default})$.
+It fails on the joint query $P(\text{default} \mid \text{grade}=D, \text{home}=\text{OWN})$: TAN answers 0.27 while only 4.6\% of these 216 borrowers defaulted.
+In TAN the grade and the housing status interact only through the tree over the features, so the model cannot represent that owning a home largely cancels the risk of a poor grade.
+The expert network, in which both are parents of DEFAULT, answers 0.078, much closer to the truth.
+Conversely, the expert network overestimates the base rate (0.26 against 0.22) and the risk of grade A borrowers, because it assumes, for example, that the grade and the loan-to-income ratio are independent and therefore spreads probability over combinations that rarely occur.
+These discrepancies are useful diagnostics: each one points to a specific independence assumption that the data contradict.
+
+\input{../generated/tab_bn_queries.tex}
+
+\subsubsection{Exact versus approximate inference}
+Exact inference is cheap here: variable elimination answers a query in about 0.1 ms thanks to barren-node pruning and the small width of the networks.
+\Cref{tab:bn_inference,tab:bn_acceptance,fig:bn_inference} compare the three sampling algorithms with the exact answers on the TAN network.
+With two evidence variables, all three methods converge, with an error that shrinks roughly as $1/\sqrt{N}$.
+Rejection sampling, however, accepts only the samples that match the evidence, and the probability of matching all evidence falls exponentially with the number of evidence variables.
+With five evidence variables only about 0.1\% of the samples are kept, and with ten evidence variables (a typical applicant) not a single sample out of \num{10000} matches, so the method returns no answer at all.
+Likelihood weighting and Gibbs sampling do not have this problem and reach errors between 0.0015 and 0.006 with \num{10000} samples.
+Likelihood weighting is the better choice for these networks: it is as accurate as Gibbs sampling or more, and about 30 times faster, because each sample is a single pass in topological order, whereas every Gibbs sweep evaluates the Markov blanket of every unobserved variable.
+Gibbs sampling pays off when the evidence is very unlikely, so that likelihood weights degenerate, which does not happen with the moderately sized CPTs here.
+
+\input{../generated/tab_bn_inference.tex}
+
+\input{../generated/tab_bn_acceptance.tex}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{bn_inference_error.pdf}
+  \caption{Mean absolute error of approximate inference against variable elimination (log-log scale).}
+  \label{fig:bn_inference}
+\end{figure}
+
+\subsection{Overall comparison}
+\Cref{tab:overall,fig:overall} rank all fourteen models of the three families on the test set.
+
 \input{../generated/tab_overall.tex}
-\begin{figure}[H]\centering\includegraphics[width=0.8\linewidth]{overall_pr_auc.pdf}\caption{Overall.}\label{fig:overall}\end{figure}
-Best: \BestModel{} \BestPrAuc{} \BestFTwo{} \BnBins{} \VeMs{}.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.85\linewidth]{overall_pr_auc.pdf}
+  \caption{All models ranked by test PR-AUC.}
+  \label{fig:overall}
+\end{figure}

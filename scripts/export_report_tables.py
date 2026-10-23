@@ -79,7 +79,7 @@ def main() -> None:
             columns={"cv_pr_auc": "CV PR-AUC", "cv_pr_auc_std": "sd", "cv_roc_auc": "CV ROC-AUC", "cv_f2": "CV F2",
                      "search_time": "time (s)"}),
         "tab_tuning", "Grid-search results (5-fold CV, refit on PR-AUC; F2 at threshold 0.5).", "tab:tuning",
-        size="\\scriptsize", column_format="lp{5.4cm}rrrrr",
+        size="\\scriptsize", column_format="lp{5.4cm}rrrrr", col_formats={"time (s)": "{:.1f}"},
     )
 
     test = pd.read_csv(R / "test_traditional.csv").sort_values("pr_auc", ascending=False)
@@ -95,20 +95,20 @@ def main() -> None:
         mlp[["model", "val_pr_auc", "pr_auc", "roc_auc", "f2_tuned", "recall_tuned", "epochs", "fit_time"]].rename(
             columns={"val_pr_auc": "val PR-AUC", "f2_tuned": "F2", "recall_tuned": "recall", "fit_time": "time (s)"}),
         "tab_mlp", "MLP variants: validation PR-AUC (used for selection) and test metrics.", "tab:mlp",
-        size="\\scriptsize", float_fmt="{:.4f}",
+        size="\\scriptsize", col_formats={"time (s)": "{:.1f}"},
     )
     deep = pd.read_csv(R / "test_deep.csv")
     latex_table(
         deep[["model", "pr_auc", "roc_auc", "threshold", *TUNED, "fit_time"]].rename(columns={**TUNED, "fit_time": "time (s)"}),
         "tab_deep", "Deep learning models on the test set (threshold tuned for F2 on a validation split).", "tab:deep",
-        size="\\small",
+        size="\\small", col_formats={"time (s)": "{:.1f}"},
     )
 
     sens = pd.read_csv(R / "bn_sensitivity.csv")
     latex_table(
         sens.pivot_table(index=["n_bins", "alpha"], columns="structure", values="pr_auc").reset_index(),
         "tab_bn_sensitivity", "Bayesian networks: validation PR-AUC by number of bins and Dirichlet pseudo-count $\\alpha$.",
-        "tab:bn_sens", size="\\small",
+        "tab:bn_sens", size="\\small", col_formats={"alpha": "{:g}"},
     )
     bn = pd.read_csv(R / "bn_classification.csv")
     latex_table(
@@ -117,7 +117,8 @@ def main() -> None:
         "tab_bn_results",
         "Bayesian-network structures on the test set, each with the bins and $\\alpha$ selected on validation data.",
         "tab:bn_results",
-        bold_max=["pr_auc", "roc_auc"], size="\\scriptsize", float_fmt="{:.4f}",
+        bold_max=["pr_auc", "roc_auc"], size="\\scriptsize",
+        col_formats={"alpha": "{:g}", "test log-lik.": "{:.0f}"},
     )
     queries = pd.read_csv(R / "bn_queries.csv")
     latex_table(queries, "tab_bn_queries", "Exact answers of two networks (variable elimination) against the empirical frequency in the training data; support is the number of training rows matching the evidence.", "tab:bn_queries")
@@ -149,8 +150,9 @@ def main() -> None:
         "n_raw": cleaning.n_raw, "n_clean": cleaning.n_clean, "n_dup": cleaning.n_duplicates,
         "n_train": len(X_train), "n_test": len(X_test), "default_rate": float(y_train.mean()),
         "best_model": MODEL_LABELS[best.key], "best_pr_auc": float(best.pr_auc),
-        "best_f_two": float(best.f2_tuned), "best_recall": float(best.recall_tuned),
-        "best_precision": float(best.precision_tuned),
+        "best_f_two": float(best.f2_tuned),
+        # Percentages read naturally in sentences such as "detects 85.1% of the defaulters".
+        "best_recall": f"{100 * best.recall_tuned:.1f}\\%", "best_precision": f"{100 * best.precision_tuned:.1f}\\%",
         "ve_ms": f"{1000 * ve_time.max():.1f}",
     })
     print(sorted(p.name for p in config.TABLES_DIR.glob("*.tex")))

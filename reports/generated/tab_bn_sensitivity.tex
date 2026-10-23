@@ -1,0 +1,26 @@
+\begin{table}[H]
+\centering
+\small
+\begin{adjustbox}{max width=\linewidth}
+\begin{tabular}{rrrrrr}
+\toprule
+n\_bins & alpha & Expert DAG & Hill-climb BIC & Naive Bayes & TAN \\
+\midrule
+3 & 0.1 & 0.7024 & 0.6088 & 0.6251 & 0.7401 \\
+3 & 1 & 0.7015 & 0.6111 & 0.6249 & 0.7393 \\
+3 & 10 & 0.6912 & 0.6114 & 0.6261 & 0.7312 \\
+5 & 0.1 & 0.7338 & 0.6479 & 0.6633 & 0.7672 \\
+5 & 1 & 0.7316 & 0.6479 & 0.6649 & 0.7656 \\
+5 & 10 & 0.7111 & 0.6457 & 0.6645 & 0.7578 \\
+8 & 0.1 & 0.7948 & 0.6859 & 0.6905 & 0.7915 \\
+8 & 1 & 0.7908 & 0.6879 & 0.6919 & 0.7893 \\
+8 & 10 & 0.7674 & 0.6871 & 0.6916 & 0.7787 \\
+12 & 0.1 & 0.7940 & 0.7416 & 0.6940 & 0.7542 \\
+12 & 1 & 0.7915 & 0.7416 & 0.6956 & 0.7515 \\
+12 & 10 & 0.7780 & 0.7383 & 0.6954 & 0.7403 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Bayesian networks: validation PR-AUC by number of bins and Dirichlet pseudo-count $\alpha$.}
+\label{tab:bn_sens}
+\end{table}

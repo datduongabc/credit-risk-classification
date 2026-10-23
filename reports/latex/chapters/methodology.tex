@@ -253,7 +253,7 @@ For correctness, the unit tests compare variable elimination with brute-force en
   $R \leftarrow$ ancestors of $\{Q\} \cup \mathrm{vars}(\bm{e})$ in $G$ \tcp*{prune barren nodes}
   $\mathcal{F} \leftarrow \{\, \phi_i = P(X_i \mid \Pa(X_i))[\bm{e}] : X_i \in R \,\}$ \tcp*{reduce by evidence}
   $H \leftarrow R \setminus (\{Q\} \cup \mathrm{vars}(\bm{e}))$\;
-  \For{$Z \in \textsc{MinWeightOrder}(\mathcal{F}, H)$}{
+  \For{$Z \in \mathrm{MinWeightOrder}(\mathcal{F}, H)$}{
     $\mathcal{F}_Z \leftarrow \{\phi \in \mathcal{F} : Z \in \mathrm{scope}(\phi)\}$\;
     $\tau \leftarrow \sum_{z} \prod_{\phi \in \mathcal{F}_Z} \phi$\;
     $\mathcal{F} \leftarrow (\mathcal{F} \setminus \mathcal{F}_Z) \cup \{\tau\}$\;

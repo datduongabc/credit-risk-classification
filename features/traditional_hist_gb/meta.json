@@ -1,0 +1,46 @@
+{
+  "feature_names": [
+    "person_age",
+    "person_income",
+    "person_emp_length",
+    "loan_amnt",
+    "loan_int_rate",
+    "loan_percent_income",
+    "cb_person_cred_hist_length",
+    "log_income",
+    "log_loan_amnt",
+    "income_per_hist_year",
+    "rate_x_burden",
+    "person_home_ownership_MORTGAGE",
+    "person_home_ownership_OTHER",
+    "person_home_ownership_OWN",
+    "person_home_ownership_RENT",
+    "loan_intent_DEBTCONSOLIDATION",
+    "loan_intent_EDUCATION",
+    "loan_intent_HOMEIMPROVEMENT",
+    "loan_intent_MEDICAL",
+    "loan_intent_PERSONAL",
+    "loan_intent_VENTURE",
+    "cb_person_default_on_file_N",
+    "cb_person_default_on_file_Y",
+    "loan_grade"
+  ],
+  "config": {
+    "imputer": "group_median",
+    "add_indicator": false,
+    "feature_engineering": true,
+    "outlier": "none",
+    "grade_encoding": "ordinal",
+    "scaler": "none",
+    "feature_range": [
+      0.0,
+      1.0
+    ],
+    "select_k": null,
+    "pca_variance": null,
+    "resampler": "none",
+    "class_weight": null,
+    "model": "hist_gb",
+    "model_params": {}
+  }
+}

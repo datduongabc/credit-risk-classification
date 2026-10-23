@@ -1,0 +1,22 @@
+\begin{table}[H]
+\centering
+\small
+\begin{adjustbox}{max width=\linewidth}
+\begin{tabular}{lrrrrrrr}
+\toprule
+model & pr\_auc & roc\_auc & threshold & F2 & recall & precision & accuracy \\
+\midrule
+Hist. Gradient Boosting & \textbf{0.9045} & \textbf{0.9459} & 0.1515 & \textbf{0.8132} & \textbf{0.8512} & 0.6901 & 0.8839 \\
+Random Forest & 0.8934 & 0.9361 & 0.2222 & 0.8021 & 0.8068 & 0.7841 & 0.9092 \\
+Decision Tree & 0.8623 & 0.9180 & 0.1414 & 0.7670 & 0.7856 & 0.7006 & 0.8797 \\
+SVM (RBF) & 0.8561 & 0.9147 & -0.4900 & 0.7703 & 0.8117 & 0.6398 & 0.8589 \\
+k-NN & 0.8163 & 0.8925 & 0.2424 & 0.7501 & 0.7906 & 0.6228 & 0.8495 \\
+Logistic Regression & 0.7512 & 0.8797 & 0.2224 & 0.7360 & 0.7955 & 0.5665 & 0.8222 \\
+Linear SVM & 0.7443 & 0.8774 & -0.4521 & 0.7339 & 0.7962 & 0.5589 & 0.8180 \\
+Gaussian Naive Bayes & 0.6244 & 0.8503 & 0.0101 & 0.7140 & 0.8096 & 0.4850 & 0.7704 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Test-set results of the tuned traditional models; F2, recall, precision and accuracy at the F2-tuned threshold.}
+\label{tab:test_traditional}
+\end{table}

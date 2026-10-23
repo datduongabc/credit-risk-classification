@@ -1,0 +1,28 @@
+\begin{table}[H]
+\centering
+\small
+\begin{adjustbox}{max width=\linewidth}
+\begin{tabular}{llrrrrrr}
+\toprule
+family & model & pr\_auc & roc\_auc & f2 & recall & precision & accuracy \\
+\midrule
+Traditional & Hist. Gradient Boosting & \textbf{0.9045} & \textbf{0.9459} & \textbf{0.8132} & \textbf{0.8512} & 0.6901 & 0.8839 \\
+Traditional & Random Forest & 0.8934 & 0.9361 & 0.8021 & 0.8068 & 0.7841 & 0.9092 \\
+Deep learning & MLP (entity embeddings) & 0.8640 & 0.9221 & 0.7616 & 0.7955 & 0.6509 & 0.8620 \\
+Traditional & Decision Tree & 0.8623 & 0.9180 & 0.7670 & 0.7856 & 0.7006 & 0.8797 \\
+Traditional & SVM (RBF) & 0.8561 & 0.9147 & 0.7703 & 0.8117 & 0.6398 & 0.8589 \\
+Deep learning & TabNet & 0.8206 & 0.9044 & 0.7458 & 0.7990 & 0.5889 & 0.8341 \\
+Traditional & k-NN & 0.8163 & 0.8925 & 0.7501 & 0.7906 & 0.6228 & 0.8495 \\
+Bayesian network & BN - TAN & 0.7895 & 0.8900 & 0.7390 & 0.8110 & 0.5453 & 0.8108 \\
+Bayesian network & BN - Expert DAG & 0.7822 & 0.8712 & 0.7152 & 0.7736 & 0.5493 & 0.8117 \\
+Traditional & Logistic Regression & 0.7512 & 0.8797 & 0.7360 & 0.7955 & 0.5665 & 0.8222 \\
+Traditional & Linear SVM & 0.7443 & 0.8774 & 0.7339 & 0.7962 & 0.5589 & 0.8180 \\
+Bayesian network & BN - Hill-climb BIC & 0.7332 & 0.8579 & 0.7033 & 0.7941 & 0.4826 & 0.7688 \\
+Bayesian network & BN - Naive Bayes & 0.7061 & 0.8635 & 0.7149 & 0.7962 & 0.5076 & 0.7866 \\
+Traditional & Gaussian Naive Bayes & 0.6244 & 0.8503 & 0.7140 & 0.8096 & 0.4850 & 0.7704 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{All model families on the test set, ranked by PR-AUC (F2, recall, precision and accuracy at the tuned threshold).}
+\label{tab:overall}
+\end{table}

@@ -1,0 +1,28 @@
+\begin{table}[H]
+\centering
+\scriptsize
+\begin{adjustbox}{max width=\linewidth}
+\begin{tabular}{llrrrrrr}
+\toprule
+model & scaler & pr\_auc & sd & roc\_auc & f2 & recall & precision \\
+\midrule
+Logistic Regression & none & 0.6650 & 0.0098 & 0.8449 & 0.6884 & 0.7792 & 0.4696 \\
+Logistic Regression & standard & 0.6985 & 0.0045 & 0.8642 & 0.7063 & 0.7801 & 0.5125 \\
+Logistic Regression & minmax [0,1] & 0.6996 & 0.0048 & 0.8642 & 0.7066 & 0.7810 & 0.5120 \\
+Logistic Regression & minmax [-1,1] & 0.6990 & 0.0049 & 0.8642 & 0.7069 & 0.7808 & 0.5129 \\
+Logistic Regression & robust & 0.6986 & 0.0046 & 0.8642 & 0.7060 & 0.7798 & 0.5124 \\
+k-NN & none & 0.6153 & 0.0109 & 0.8203 & 0.4926 & 0.4594 & 0.6949 \\
+k-NN & standard & 0.7775 & 0.0072 & 0.8827 & 0.6114 & 0.5664 & 0.8964 \\
+k-NN & minmax [0,1] & 0.7720 & 0.0072 & 0.8778 & 0.6098 & 0.5646 & 0.8972 \\
+k-NN & minmax [-1,1] & 0.7723 & 0.0071 & 0.8779 & 0.6113 & 0.5662 & 0.8975 \\
+k-NN & robust & 0.7708 & 0.0070 & 0.8820 & 0.5766 & 0.5288 & 0.9026 \\
+SVM (RBF) & standard & 0.8340 & 0.0079 & 0.9075 & 0.7543 & 0.7674 & 0.7063 \\
+SVM (RBF) & minmax [0,1] & 0.7966 & 0.0068 & 0.8967 & 0.7365 & 0.7644 & 0.6426 \\
+SVM (RBF) & minmax [-1,1] & 0.8040 & 0.0071 & 0.9008 & 0.7433 & 0.7711 & 0.6496 \\
+SVM (RBF) & robust & 0.8302 & 0.0082 & 0.9090 & 0.7581 & 0.7768 & 0.6918 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Scaling methods: 5-fold CV on the training set (F2, recall and precision at threshold 0.5).}
+\label{tab:suite_scaling}
+\end{table}

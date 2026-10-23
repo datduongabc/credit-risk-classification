@@ -1,1 +1,53 @@
-SKELETON discussion
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{Comparison of the three approaches}
+\Cref{tab:approaches} summarizes the strengths and weaknesses observed for the three families.
+
+\begin{table}[H]
+  \centering
+  \small
+  \begin{tabularx}{\linewidth}{l>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X}
+    \toprule
+    \textbf{Approach} & \textbf{Strengths} & \textbf{Limitations} \\
+    \midrule
+    Traditional pipeline &
+    Best accuracy (gradient boosting); fast to train (seconds); every preprocessing decision is explicit and testable; mature tooling for tuning and thresholding &
+    Linear and distance-based models depend heavily on hand-made preprocessing; ensembles are harder to explain than a single model \\
+    Deep learning &
+    Learns representations of categorical variables end to end; beats every linear model without manual interaction terms; the learned embeddings are reusable features &
+    Below the tree ensembles on this medium-sized table; many training hyper-parameters; slower (TabNet especially); less transparent \\
+    Bayesian network &
+    Explicit, inspectable assumptions; exact answers to any conditional query, in both predictive and diagnostic directions; native handling of missing features &
+    Requires discretization, which loses information; CPT size grows exponentially with the number of parents; weakest classifier of the three families \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Strengths and limitations of the three model families on this problem.}
+  \label{tab:approaches}
+\end{table}
+
+\subsection{What mattered most}
+Three decisions had a large effect, and most others had almost none.
+\begin{enumerate}
+  \item \textbf{The model family.} Moving from a linear model to a tree ensemble raised the test PR-AUC from 0.75 to 0.90, more than every preprocessing choice combined.
+  \item \textbf{Scaling, for distance- and margin-based models.} It decides whether k-NN and the SVM are usable at all.
+  \item \textbf{The decision threshold.} For a fixed model, moving the threshold trades recall against precision far more than any re-weighting or resampling strategy does. Tuning it for F2 is a direct, transparent way to encode the higher cost of a missed defaulter.
+\end{enumerate}
+In contrast, the imputation method, the treatment of the seven impossible values, the scaler variant and the resampling method changed PR-AUC by less than the fold-to-fold noise.
+Reporting these negative results matters: they show which parts of the pipeline deserve attention in practice.
+
+\subsection{Choice of metric}
+Accuracy would have been misleading for this problem.
+For example, the random forest has a higher test accuracy than gradient boosting at their tuned thresholds, but a lower recall; a lender who cares about missed defaulters should prefer the latter.
+PR-AUC ranks models by how well they separate defaulters across all thresholds, and F2 makes the cost asymmetry explicit when choosing one threshold.
+The weight $\beta = 2$ is itself a business assumption: a lender with a different ratio between the cost of a default and the lost margin of a rejected applicant should choose a different $\beta$, or minimize the expected cost directly.
+
+\subsection{Limitations and threats to validity}
+\begin{itemize}
+  \item \textbf{One dataset and one split.} All conclusions come from one public dataset with a single stratified test split. Cross-validation on the training set agrees with the test results, but the dataset's provenance (country, period, lender) is undocumented, so the absolute numbers may not transfer to other portfolios.
+  \item \textbf{No temporal information.} Credit models are normally validated on later loans than they are trained on. The dataset has no dates, so a random split may slightly overstate performance under drift.
+  \item \textbf{Limited search spaces.} The grids are deliberately small to keep \emph{Run all} under half an hour. The headroom experiment (\cref{tab:headroom}) suggests this does not change the conclusions for the best family, but other families might gain somewhat from wider searches.
+  \item \textbf{Fixed choices.} The IQR factor $k = 1.5$, the four engineered features, the MLP training schedule and the Bayesian-network parent limit were set by convention rather than tuned.
+  \item \textbf{Fairness.} The features include age, and home ownership acts as a proxy for wealth. A deployed credit model must be audited for disparate impact, which is outside the scope of this assignment.
+  \item \textbf{Calibration.} Class weights and threshold tuning shift the predicted probabilities, so the scores should be calibrated before they are read as default probabilities, for example to price a loan.
+\end{itemize}

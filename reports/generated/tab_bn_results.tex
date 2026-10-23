@@ -1,0 +1,18 @@
+\begin{table}[H]
+\centering
+\scriptsize
+\begin{adjustbox}{max width=\linewidth}
+\begin{tabular}{lrrrrrrrrrrr}
+\toprule
+structure & bins & alpha & edges & parameters & test log-lik. & pr\_auc & roc\_auc & F2 & recall & precision & accuracy \\
+\midrule
+Expert DAG & 8 & 0.1 & 12 & 2041 & -100750 & 0.7822 & 0.8712 & 0.7152 & 0.7736 & 0.5493 & 0.8117 \\
+Hill-climb BIC & 12 & 0.1 & 17 & 3736 & -103692 & 0.7332 & 0.8579 & 0.7033 & 0.7941 & 0.4826 & 0.7688 \\
+Naive Bayes & 12 & 1 & 11 & 171 & -136946 & 0.7061 & 0.8635 & 0.7149 & 0.7962 & 0.5076 & 0.7866 \\
+TAN & 8 & 0.1 & 21 & 777 & -105532 & \textbf{0.7895} & \textbf{0.8900} & 0.7390 & 0.8110 & 0.5453 & 0.8108 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Bayesian-network structures on the test set, each with the bins and $\alpha$ selected on validation data.}
+\label{tab:bn_results}
+\end{table}

@@ -82,16 +82,19 @@ def latex_table(
     bold_max: list[str] | None = None,
     column_format: str | None = None,
     size: str = "\\small",
+    col_formats: dict[str, str] | None = None,
 ) -> str:
     """Booktabs table written to reports/generated/<name>.tex (bolding the best per column)."""
     df = df.copy()
+    col_formats = col_formats or {}
     numeric_cols = [pd.api.types.is_numeric_dtype(df[c]) for c in df.columns]
     for col in bold_max or []:
         best = df[col].max()
         df[col] = [f"\\textbf{{{float_fmt.format(v)}}}" if v == best else float_fmt.format(v) for v in df[col]]
     for col in df.columns:
         if pd.api.types.is_float_dtype(df[col]):
-            df[col] = df[col].map(lambda v: "--" if pd.isna(v) else float_fmt.format(v))
+            fmt = col_formats.get(col, float_fmt)
+            df[col] = df[col].map(lambda v, fmt=fmt: "--" if pd.isna(v) else fmt.format(v))
     df.columns = [_escape(str(c)) for c in df.columns]
     df = df.map(lambda v: _escape(v) if isinstance(v, str) and "\\textbf" not in v else v)
     default_format = "".join("r" if num else "l" for num in numeric_cols)

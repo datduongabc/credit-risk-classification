@@ -1,0 +1,20 @@
+\begin{table}[H]
+\centering
+\small
+\begin{adjustbox}{max width=\linewidth}
+\begin{tabular}{lrr}
+\toprule
+strategy & Hist. Gradient Boosting & Logistic Regression \\
+\midrule
+1. keep as is & 0.89660 & 0.75358 \\
+2. drop rows & 0.89681 & 0.75360 \\
+3. replace by mean & 0.89769 & 0.75360 \\
+4. replace by median & 0.89769 & 0.75356 \\
+5. cap to plausible value & 0.89656 & 0.75360 \\
+6. missing, then pipeline imputer & 0.89769 & 0.75356 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Handling the 7 impossible training values: 5-fold CV PR-AUC on identical validation rows (mean fold standard deviation 0.0052).}
+\label{tab:impossible}
+\end{table}

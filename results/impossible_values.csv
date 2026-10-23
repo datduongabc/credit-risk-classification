@@ -1,0 +1,13 @@
+strategy,model,pr_auc,pr_auc_std
+keep as is,Hist. Gradient Boosting,0.8966044893724444,0.002189068105197345
+keep as is,Logistic Regression,0.7535750474626328,0.0075613174600354886
+drop rows,Hist. Gradient Boosting,0.8968131174689988,0.0033327763333999747
+drop rows,Logistic Regression,0.7536045206931161,0.00752356921542872
+replace by mean,Hist. Gradient Boosting,0.8976908822334476,0.0030358812743940316
+replace by mean,Logistic Regression,0.753595783716518,0.007547818299166661
+replace by median,Hist. Gradient Boosting,0.8976908822334476,0.0030358812743940316
+replace by median,Logistic Regression,0.7535614062709989,0.007544602031461009
+cap to plausible value,Hist. Gradient Boosting,0.8965577329667024,0.0022289453033824415
+cap to plausible value,Logistic Regression,0.7536026696604257,0.007572004206943021
+"missing, then pipeline imputer",Hist. Gradient Boosting,0.8976908822334476,0.0030358812743940316
+"missing, then pipeline imputer",Logistic Regression,0.7535614062709989,0.007544602031461009

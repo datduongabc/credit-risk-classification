@@ -1,0 +1,16 @@
+\begin{table}[H]
+\centering
+\small
+\begin{adjustbox}{max width=\linewidth}
+\begin{tabular}{lrrrrrrrr}
+\toprule
+model & pr\_auc & roc\_auc & threshold & F2 & recall & precision & accuracy & time (s) \\
+\midrule
+MLP 128-64 (reference) & 0.8640 & 0.9221 & 0.4300 & 0.7616 & 0.7955 & 0.6509 & 0.8620 & 9.9 \\
+TabNet & 0.8206 & 0.9044 & 0.4100 & 0.7458 & 0.7990 & 0.5889 & 0.8341 & 32.0 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Deep learning models on the test set (threshold tuned for F2 on a validation split).}
+\label{tab:deep}
+\end{table}

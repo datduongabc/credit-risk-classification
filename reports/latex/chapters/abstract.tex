@@ -1,1 +1,9 @@
-SKELETON abstract
+This report predicts whether a borrower will default on a loan, using the public Credit Risk Dataset of \num{32581} loans.
+Three approaches are built and compared under one evaluation protocol designed for an imbalanced problem in which a missed defaulter is costlier than a rejected applicant: models are ranked by PR-AUC and their decision thresholds are tuned for the F2 score.
+First, a fully configurable traditional pipeline is evaluated through controlled ablations of imputation, outlier handling, encoding, scaling, dimensionality reduction and class-imbalance strategies, followed by the tuning of eight classifiers.
+Second, a deep learning pipeline trains a multilayer perceptron with entity embeddings and TabNet.
+Third, as the talented-engineering extension, a Bayesian network library is implemented from scratch, with Naive Bayes, TAN, BIC hill-climbing and expert structures, exact inference by variable elimination and approximate inference by rejection sampling, likelihood weighting and Gibbs sampling.
+Histogram-based gradient boosting performs best, with a test PR-AUC of \BestPrAuc{}; at its F2-tuned threshold it detects \BestRecall{} of the defaulters with a precision of \BestPrecision{}, and neither a wider search nor stacking improves on it.
+The entity-embedding network outperforms every linear model but not the tree ensembles.
+The Bayesian networks are less accurate but fully interpretable: they answer diagnostic queries exactly, and comparing their answers with empirical frequencies reveals which independence assumptions the data contradict.
+All experiments run end to end in a Google Colab notebook, and the code, features and report are available on GitHub.

@@ -1,1 +1,25 @@
-SKELETON conclusion
+\section{Conclusion and future work}
+\label{sec:conclusion}
+
+This project built and compared three complete approaches to predicting loan default on the Credit Risk Dataset.
+
+The \textbf{traditional pipeline} is fully configurable, from imputation to the classifier, and every option was evaluated with controlled cross-validated ablations.
+Scaling decides the fate of distance- and margin-based models, engineered features, IQR clipping and a one-hot grade help the linear models, and PCA and univariate feature selection never help reliably on this low-dimensional table.
+After tuning, histogram-based gradient boosting is the best model, with a test PR-AUC of \BestPrAuc{}.
+At its F2-tuned threshold it detects \BestRecall{} of the defaulters with a precision of \BestPrecision{}.
+A wider hyper-parameter search and a stacked ensemble did not improve on it, which indicates that the result is close to what these features allow.
+
+The \textbf{deep learning pipeline} with entity embeddings outperforms every linear model and produces reusable learned features, but it stays below the tree ensembles, in line with the literature on tabular data.
+
+The \textbf{Bayesian network}, implemented from scratch for the talented-engineering extension, is the least accurate classifier but the most transparent model.
+TAN is the best structure for prediction, whereas a better model of the joint distribution, as learned by hill climbing on BIC, does not translate into better classification; comparing exact query answers with empirical frequencies exposes the independence assumptions of each structure.
+The inference experiments reproduce the textbook behaviour: variable elimination is exact and fast on these small networks, likelihood weighting and Gibbs sampling converge, and rejection sampling collapses once many variables are observed.
+
+\paragraph{Future work.}
+\begin{itemize}[nosep]
+  \item Calibrate the probabilities (isotonic or Platt scaling) and choose the threshold by minimizing an explicit expected loss.
+  \item Explain individual decisions with SHAP values, as lenders must justify rejections.
+  \item Audit the model for disparate impact across age groups.
+  \item Learn Bayesian-network parameters with expectation maximization over the incomplete rows, and try continuous (conditional Gaussian) nodes to avoid discretization.
+  \item Validate on a time-ordered split if dated loan data become available.
+\end{itemize}

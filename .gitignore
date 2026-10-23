@@ -19,3 +19,6 @@ reports/latex/*.synctex.gz
 reports/latex/_minted*/
 reports/latex/svg-inkscape/
 mlAssignments_v1.1.pdf
+reports/latex/*.loa
+# The submitted copy lives at reports/report.pdf
+reports/latex/report.pdf

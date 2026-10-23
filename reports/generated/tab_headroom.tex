@@ -1,0 +1,17 @@
+\begin{table}[H]
+\centering
+\small
+\begin{adjustbox}{max width=\linewidth}
+\begin{tabular}{p{8.2cm}rrr}
+\toprule
+approach & CV PR-AUC & sd & gain vs grid \\
+\midrule
+Hist. Gradient Boosting, grid search (8 candidates) & 0.8988 & 0.0026 & 0.0000 \\
+Hist. Gradient Boosting, random search (40 candidates, 7 hyper-parameters) & 0.8986 & 0.0022 & -0.0003 \\
+Stacking (Hist. GB + Random Forest + Logistic Regression) & 0.9002 & 0.0032 & 0.0014 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Headroom check: stronger optimization of the best model family (5-fold CV on the training set).}
+\label{tab:headroom}
+\end{table}

@@ -1,0 +1,20 @@
+\begin{table}[H]
+\centering
+\scriptsize
+\begin{adjustbox}{max width=\linewidth}
+\begin{tabular}{llrrrrrr}
+\toprule
+model & grade\_encoding & pr\_auc & sd & roc\_auc & f2 & recall & precision \\
+\midrule
+Logistic Regression & ordinal & 0.6985 & 0.0045 & 0.8642 & 0.7063 & 0.7801 & 0.5125 \\
+Logistic Regression & onehot & 0.7165 & 0.0061 & 0.8708 & 0.7181 & 0.7791 & 0.5470 \\
+k-NN & ordinal & 0.7775 & 0.0072 & 0.8827 & 0.6114 & 0.5664 & 0.8964 \\
+k-NN & onehot & 0.7748 & 0.0083 & 0.8787 & 0.6179 & 0.5743 & 0.8871 \\
+Random Forest & ordinal & 0.8827 & 0.0016 & 0.9313 & 0.7685 & 0.7392 & 0.9136 \\
+Random Forest & onehot & 0.8819 & 0.0018 & 0.9309 & 0.7667 & 0.7392 & 0.9010 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Encoding of the loan grade: 5-fold CV on the training set (F2, recall and precision at threshold 0.5).}
+\label{tab:suite_encoding}
+\end{table}

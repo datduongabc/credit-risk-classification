@@ -354,7 +354,7 @@ md(
 - Scaling is essential for distance- and margin-based models (k-NN, SVM).
 - The engineered ratio features, IQR clipping and a one-hot loan grade help the linear models.
 - The imputation method barely matters at these missing-value levels.
-- PCA always hurts: there are only ~20 encoded features and they are not redundant.
+- PCA never helps: it is neutral at 99% retained variance and harmful below, because the ~20 encoded features are not redundant.
 - Class weights raise F2 at the default threshold without hurting PR-AUC.
 
 ## 4. Model comparison
@@ -684,7 +684,7 @@ md(
 * **Gradient-boosted trees win.** Tree ensembles capture the strong interactions between grade, loan-to-income
   ratio and home ownership. Linear models cannot represent them without hand-crafted features.
 * **Preprocessing matters most for the scale-sensitive models.** Scaling, clipping and the encoding choice
-  change k-NN, SVM and logistic regression substantially, while trees are almost unaffected. PCA always hurts
+  change k-NN, SVM and logistic regression substantially, while trees are almost unaffected. PCA never helps
   on this low-dimensional data.
 * **Deep learning is competitive but does not beat boosting** on 26k rows of tabular data, in line with the
   literature (Grinsztajn et al., 2022). The entity-embedding MLP beats every linear model.

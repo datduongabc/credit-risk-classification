@@ -1,0 +1,26 @@
+\begin{table}[H]
+\centering
+\scriptsize
+\begin{adjustbox}{max width=\linewidth}
+\begin{tabular}{llrrrrrrr}
+\toprule
+model & outlier & feat\_eng & pr\_auc & sd & roc\_auc & f2 & recall & precision \\
+\midrule
+Logistic Regression & none & False & 0.6985 & 0.0045 & 0.8642 & 0.7063 & 0.7801 & 0.5125 \\
+Logistic Regression & none & True & 0.7122 & 0.0037 & 0.8761 & 0.7221 & 0.7983 & 0.5226 \\
+Logistic Regression & clip\_iqr & False & 0.7021 & 0.0049 & 0.8656 & 0.7082 & 0.7833 & 0.5120 \\
+Logistic Regression & clip\_iqr & True & 0.7220 & 0.0053 & 0.8771 & 0.7273 & 0.8022 & 0.5297 \\
+Logistic Regression & log & False & 0.7105 & 0.0040 & 0.8717 & 0.7133 & 0.7877 & 0.5179 \\
+Logistic Regression & log & True & 0.7160 & 0.0035 & 0.8765 & 0.7227 & 0.7958 & 0.5285 \\
+Random Forest & none & False & 0.8827 & 0.0016 & 0.9313 & 0.7685 & 0.7392 & 0.9136 \\
+Random Forest & none & True & 0.8852 & 0.0011 & 0.9332 & 0.7721 & 0.7466 & 0.8942 \\
+Random Forest & clip\_iqr & False & 0.8834 & 0.0020 & 0.9319 & 0.7690 & 0.7396 & 0.9146 \\
+Random Forest & clip\_iqr & True & 0.8854 & 0.0011 & 0.9333 & 0.7718 & 0.7461 & 0.8951 \\
+Random Forest & log & False & 0.8825 & 0.0018 & 0.9312 & 0.7685 & 0.7390 & 0.9143 \\
+Random Forest & log & True & 0.8852 & 0.0011 & 0.9331 & 0.7721 & 0.7466 & 0.8942 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Outlier handling and feature engineering: 5-fold CV on the training set (F2, recall and precision at threshold 0.5).}
+\label{tab:suite_outlier_fe}
+\end{table}

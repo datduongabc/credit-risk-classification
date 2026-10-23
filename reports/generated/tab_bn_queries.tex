@@ -1,0 +1,27 @@
+\begin{table}[H]
+\centering
+\small
+\begin{adjustbox}{max width=\linewidth}
+\begin{tabular}{lrrrr}
+\toprule
+query & empirical & support & TAN & Expert DAG \\
+\midrule
+P(default) & 0.2187 & 25932 & 0.2187 & 0.2594 \\
+P(default \textbar{} grade=A) & 0.0998 & 8584 & 0.0998 & 0.1750 \\
+P(default \textbar{} grade=D) & 0.5902 & 2889 & 0.5900 & 0.5749 \\
+P(default \textbar{} grade=G) & 0.9792 & 48 & 0.9675 & 0.6361 \\
+P(default \textbar{} home=RENT) & 0.3167 & 13114 & 0.3149 & 0.3675 \\
+P(default \textbar{} home=OWN) & 0.0715 & 2042 & 0.0681 & 0.1696 \\
+P(default \textbar{} grade=D, home=OWN) & 0.0463 & 216 & 0.2731 & 0.0780 \\
+P(default \textbar{} intent=MEDICAL) & 0.2672 & 4842 & 0.2672 & 0.3008 \\
+P(default \textbar{} intent=VENTURE) & 0.1505 & 4610 & 0.1506 & 0.1901 \\
+P(prev\_default=Y \textbar{} default=1) & 0.3063 & 5671 & 0.3064 & 0.2685 \\
+P(prev\_default=Y \textbar{} default=0) & 0.1404 & 20261 & 0.1404 & 0.1445 \\
+P(grade in D..G \textbar{} default=1) & 0.4195 & 5671 & 0.4196 & 0.3408 \\
+P(grade in D..G \textbar{} default=0) & 0.0746 & 20261 & 0.0747 & 0.0832 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Exact answers of two networks (variable elimination) against the empirical frequency in the training data; support is the number of training rows matching the evidence.}
+\label{tab:bn_queries}
+\end{table}

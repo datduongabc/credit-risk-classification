@@ -1,0 +1,26 @@
+\begin{table}[H]
+\centering
+\scriptsize
+\begin{adjustbox}{max width=\linewidth}
+\begin{tabular}{llrrrrrr}
+\toprule
+model & imbalance & pr\_auc & sd & roc\_auc & f2 & recall & precision \\
+\midrule
+Logistic Regression & none & 0.7026 & 0.0039 & 0.8637 & 0.5390 & 0.5050 & 0.7381 \\
+Logistic Regression & class\_weight & 0.6985 & 0.0045 & 0.8642 & 0.7063 & 0.7801 & 0.5125 \\
+Logistic Regression & smote & 0.6983 & 0.0050 & 0.8638 & 0.7041 & 0.7750 & 0.5155 \\
+Logistic Regression & undersample & 0.6983 & 0.0038 & 0.8641 & 0.7080 & 0.7822 & 0.5133 \\
+Random Forest & none & 0.8843 & 0.0017 & 0.9314 & 0.7554 & 0.7152 & 0.9743 \\
+Random Forest & class\_weight & 0.8827 & 0.0016 & 0.9313 & 0.7685 & 0.7392 & 0.9136 \\
+Random Forest & smote & 0.8792 & 0.0023 & 0.9280 & 0.7568 & 0.7182 & 0.9641 \\
+Random Forest & undersample & 0.8766 & 0.0016 & 0.9291 & 0.7809 & 0.7939 & 0.7334 \\
+Hist. Gradient Boosting & none & 0.8982 & 0.0016 & 0.9440 & 0.7657 & 0.7265 & 0.9761 \\
+Hist. Gradient Boosting & class\_weight & 0.8986 & 0.0029 & 0.9442 & 0.7923 & 0.7819 & 0.8370 \\
+Hist. Gradient Boosting & smote & 0.8974 & 0.0016 & 0.9428 & 0.7678 & 0.7288 & 0.9766 \\
+Hist. Gradient Boosting & undersample & 0.8928 & 0.0023 & 0.9406 & 0.7921 & 0.7962 & 0.7762 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Class-imbalance strategies: 5-fold CV on the training set (F2, recall and precision at threshold 0.5).}
+\label{tab:suite_imbalance}
+\end{table}
