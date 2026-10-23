@@ -46,6 +46,14 @@ class CleaningReport:
         return self.__dict__.copy()
 
 
+def impossible_masks(df: pd.DataFrame, max_age: int = 100) -> tuple[pd.Series, pd.Series]:
+    """Rows whose age, or whose employment length, cannot be true."""
+    bad_age = df["person_age"] > max_age
+    # Employment that started before age 14 is impossible (e.g. a 22-year-old with 123 years).
+    bad_emp = df["person_emp_length"] > (df["person_age"] - 14).clip(lower=0)
+    return bad_age, bad_emp
+
+
 def clean(df: pd.DataFrame, max_age: int = 100) -> tuple[pd.DataFrame, CleaningReport]:
     """Remove exact duplicates and turn physically impossible values into missing values.
 
@@ -57,9 +65,7 @@ def clean(df: pd.DataFrame, max_age: int = 100) -> tuple[pd.DataFrame, CleaningR
     df = df.drop_duplicates().reset_index(drop=True)
     n_dup = n_raw - len(df)
 
-    bad_age = df["person_age"] > max_age
-    # Employment that started before age 14 is impossible (e.g. a 22-year-old with 123 years).
-    bad_emp = df["person_emp_length"] > (df["person_age"] - 14).clip(lower=0)
+    bad_age, bad_emp = impossible_masks(df, max_age)
     df = df.copy()
     df.loc[bad_age, "person_age"] = np.nan
     df.loc[bad_emp, "person_emp_length"] = np.nan

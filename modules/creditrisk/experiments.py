@@ -11,11 +11,17 @@ from __future__ import annotations
 import time
 from collections.abc import Iterable
 
+import numpy as np
 import pandas as pd
+from scipy.stats import loguniform, randint, uniform
+from sklearn.base import clone
+from sklearn.ensemble import StackingClassifier
 from sklearn.inspection import permutation_importance
-from sklearn.model_selection import GridSearchCV, TunedThresholdClassifierCV
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import average_precision_score
+from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, TunedThresholdClassifierCV, cross_validate
 
-from . import config
+from . import config, data
 from .evaluation import CV_SCORING, F2_SCORER, PRIMARY_METRIC, compute_metrics, cross_validate_pipeline, cv_splitter, scores_of
 from .pipeline import MODEL_LABELS, PipelineConfig, build_pipeline
 
@@ -203,3 +209,124 @@ def importance_frame(estimator, X, y, n_repeats=5, n_jobs=-1) -> pd.DataFrame:
         .sort_values("importance", ascending=False)
         .reset_index(drop=True)
     )
+
+
+# --------------------------------------------------------------------------- impossible values
+def _impossible_to_nan(X, ref=None):
+    X = X.copy()
+    bad_age, bad_emp = data.impossible_masks(X)
+    X.loc[bad_age, "person_age"] = np.nan
+    X.loc[bad_emp, "person_emp_length"] = np.nan
+    return X
+
+
+def _impossible_to_stat(stat):
+    """Replace impossible values by a statistic of the valid training values."""
+
+    def apply(X, ref):
+        X = X.copy()
+        bad_age, bad_emp = data.impossible_masks(X)
+        ok_age, ok_emp = data.impossible_masks(ref)
+        X.loc[bad_age, "person_age"] = getattr(ref.loc[~ok_age, "person_age"], stat)()
+        X.loc[bad_emp, "person_emp_length"] = getattr(ref.loc[~ok_emp, "person_emp_length"], stat)()
+        return X
+
+    return apply
+
+
+def _impossible_to_cap(X, ref=None):
+    X = X.copy()
+    bad_age, bad_emp = data.impossible_masks(X)
+    X.loc[bad_age, "person_age"] = 100.0
+    X.loc[bad_emp, "person_emp_length"] = (X.loc[bad_emp, "person_age"] - 14).clip(lower=0)
+    return X
+
+
+# Each strategy is (treatment of the training fold, treatment of the validation fold). A deployed
+# model cannot refuse to score an applicant, so "drop" still treats impossible validation rows
+# as missing values.
+IMPOSSIBLE_STRATEGIES = {
+    "keep as is": (lambda X, ref: X, lambda X, ref: X),
+    "drop rows": ("drop", _impossible_to_nan),
+    "replace by mean": (_impossible_to_stat("mean"), _impossible_to_stat("mean")),
+    "replace by median": (_impossible_to_stat("median"), _impossible_to_stat("median")),
+    "cap to plausible value": (_impossible_to_cap, _impossible_to_cap),
+    "missing, then pipeline imputer": (_impossible_to_nan, _impossible_to_nan),
+}
+
+
+def run_impossible_values(estimators: dict, verbose=True) -> pd.DataFrame:
+    """CV PR-AUC of each way of handling impossible ages / employment lengths.
+
+    Uses the deduplicated but otherwise raw data with the project's train/test split, so the
+    validation rows are identical across strategies and only the treatment differs.
+    """
+    raw = data.load_raw().drop_duplicates().reset_index(drop=True)
+    raw[config.NUMERIC_FEATURES] = raw[config.NUMERIC_FEATURES].astype(float)
+    X, _, y, _ = data.split(raw)
+    rows = []
+    for strategy, (treat_fit, treat_val) in IMPOSSIBLE_STRATEGIES.items():
+        for label, est in estimators.items():
+            scores = []
+            for tr, va in cv_splitter().split(X, y):
+                X_fit, y_fit, X_val = X.iloc[tr], y.iloc[tr], X.iloc[va]
+                if treat_fit == "drop":
+                    bad_age, bad_emp = data.impossible_masks(X_fit)
+                    keep = ~(bad_age | bad_emp)
+                    X_fit2, y_fit2 = X_fit[keep], y_fit[keep]
+                else:
+                    X_fit2, y_fit2 = treat_fit(X_fit, X_fit), y_fit
+                proba = clone(est).fit(X_fit2, y_fit2).predict_proba(treat_val(X_val, X_fit))[:, 1]
+                scores.append(average_precision_score(y.iloc[va], proba))
+            rows.append({"strategy": strategy, "model": label, "pr_auc": float(np.mean(scores)), "pr_auc_std": float(np.std(scores))})
+            if verbose:
+                print(f"[impossible] {strategy:32s} {label:24s} PR-AUC={np.mean(scores):.5f}")
+    out = pd.DataFrame(rows)
+    config.ensure_dirs()
+    out.to_csv(config.RESULTS_DIR / "impossible_values.csv", index=False)
+    return out
+
+
+# ------------------------------------------------------------------------------------ headroom
+HGB_WIDE_SPACE = {
+    "model__learning_rate": loguniform(0.01, 0.3),
+    "model__max_leaf_nodes": randint(15, 128),
+    "model__min_samples_leaf": randint(5, 100),
+    "model__l2_regularization": loguniform(1e-3, 10),
+    "model__max_iter": randint(200, 1000),
+    "model__max_features": uniform(0.5, 0.5),
+    "model__class_weight": [None, "balanced"],
+}
+
+
+def run_headroom(X, y, searches: dict, n_iter=40, n_jobs=-1, verbose=True):
+    """Does more optimization help? A wide random search for gradient boosting and a stacked
+    ensemble of the three strongest tuned model families, compared with the grid-search result."""
+    rows = [{"approach": "Hist. Gradient Boosting, grid search (8 candidates)",
+             "cv_pr_auc": float(searches["hist_gb"].best_score_),
+             "cv_pr_auc_std": float(searches["hist_gb"].cv_results_["std_test_pr_auc"][searches["hist_gb"].best_index_])}]
+    t0 = time.perf_counter()
+    rs = RandomizedSearchCV(
+        build_pipeline(PARAM_GRIDS["hist_gb"][0]), HGB_WIDE_SPACE, n_iter=n_iter, scoring="average_precision",
+        cv=cv_splitter(), n_jobs=n_jobs, random_state=config.SEED,
+    ).fit(X, y)
+    rows.append({"approach": f"Hist. Gradient Boosting, random search ({n_iter} candidates, 7 hyper-parameters)",
+                 "cv_pr_auc": float(rs.best_score_),
+                 "cv_pr_auc_std": float(rs.cv_results_["std_test_score"][rs.best_index_]),
+                 "time": time.perf_counter() - t0})
+    stack = StackingClassifier(
+        [(k, searches[k].best_estimator_) for k in ("hist_gb", "random_forest", "logreg")],
+        final_estimator=LogisticRegression(max_iter=1000), cv=5,
+    )
+    t0 = time.perf_counter()
+    res = cross_validate(stack, X, y, cv=cv_splitter(), scoring="average_precision", n_jobs=n_jobs)
+    rows.append({"approach": "Stacking (Hist. GB + Random Forest + Logistic Regression)",
+                 "cv_pr_auc": float(res["test_score"].mean()), "cv_pr_auc_std": float(res["test_score"].std()),
+                 "time": time.perf_counter() - t0})
+    out = pd.DataFrame(rows)
+    out["gain_vs_grid"] = out["cv_pr_auc"] - out["cv_pr_auc"].iloc[0]
+    config.ensure_dirs()
+    out.to_csv(config.RESULTS_DIR / "headroom.csv", index=False)
+    if verbose:
+        print(out.round(4).to_string(index=False))
+    return out, rs

@@ -52,6 +52,24 @@ def main() -> None:
             f"tab:suite_{name}", size="\\scriptsize",
         )
 
+    imp = pd.read_csv(R / "impossible_values.csv")
+    imp_t = imp.pivot(index="strategy", columns="model", values="pr_auc").reindex(imp.strategy.unique()).reset_index()
+    imp_t["strategy"] = [f"{i + 1}. {name}" for i, name in enumerate(imp_t["strategy"])]
+    latex_table(
+        imp_t, "tab_impossible",
+        "Handling the 7 impossible training values: 5-fold CV PR-AUC on identical validation rows "
+        f"(mean fold standard deviation {imp['pr_auc_std'].mean():.4f}).",
+        "tab:impossible", float_fmt="{:.5f}",
+    )
+
+    head = pd.read_csv(R / "headroom.csv")
+    latex_table(
+        head[["approach", "cv_pr_auc", "cv_pr_auc_std", "gain_vs_grid"]].rename(
+            columns={"cv_pr_auc": "CV PR-AUC", "cv_pr_auc_std": "sd", "gain_vs_grid": "gain vs grid"}),
+        "tab_headroom", "Headroom check: stronger optimization of the best model family (5-fold CV on the training set).",
+        "tab:headroom", column_format="p{8.2cm}rrr",
+    )
+
     tuning = pd.read_csv(R / "tuning.csv")
     tuning["best_params"] = tuning.best_params.map(
         lambda s: ", ".join(f"{k.replace('model__', '')}={v}" for k, v in ast.literal_eval(s).items())

@@ -239,6 +239,30 @@ print("test: ", X_test.shape, "default rate %.4f" % y_test.mean())
 )
 md(
     """
+#### Is "impossible value -> missing" the right choice?
+There are several ways to handle an age of 144: keep it, drop the row, replace it by the mean or median, cap it
+at a plausible value, or mark it missing and let the pipeline's imputer fill it. The comparison below scores
+every option with 5-fold CV on the same validation rows, for a tree ensemble and a linear model.
+"""
+)
+code(
+    """
+impossible = experiments.run_impossible_values({
+    "Hist. Gradient Boosting": pipeline.build_pipeline(experiments.PREP_TREE.with_(model="hist_gb")),
+    "Logistic Regression": pipeline.build_pipeline(experiments.PREP_SCALED.with_(model="logreg")),
+}, verbose=False)
+display(impossible.pivot(index="strategy", columns="model", values="pr_auc").round(5))
+print("typical fold standard deviation: %.4f" % impossible["pr_auc_std"].mean())
+"""
+)
+md(
+    """
+Only 7 training rows (and no test row) are affected, so every strategy scores within a fraction of the fold
+standard deviation of the others. Performance cannot separate them, so the choice is made on methodology.
+"Missing, then imputer" keeps the row's ten valid columns. It learns the fill value inside each training fold,
+which avoids leakage. It can use any configured imputer (MICE can infer age from credit-history length). And
+it is the only option that also works for a new applicant at prediction time, where a row cannot be dropped.
+
 ### 3.2 A configurable pipeline
 Every step is chosen through a `PipelineConfig`:
 
@@ -368,7 +392,30 @@ preds = {pipeline.MODEL_LABELS[k]: (y_test, t.predict(X_test)) for k, t in thres
 evaluation.plot_confusion_matrices(preds, path=config.FIGURES_DIR / "confusion_traditional.pdf", ncols=4); plt.show()
 """
 )
-md("### 4.3 What drives the predictions? (permutation importance of the best model on the test set)")
+md(
+    """
+### 4.3 Is there headroom left?
+Several grid optima sit on the edge of their grids, which can mean the search space was too narrow. Two
+stronger optimizers test this for the best model family: a 40-candidate random search over seven
+gradient-boosting hyper-parameters, and a stacked ensemble of the three strongest tuned families.
+"""
+)
+code(
+    """
+headroom, wide_search = experiments.run_headroom(X_train, y_train, searches, n_jobs=N_JOBS, verbose=False)
+display(headroom.round(4))
+print("best random-search parameters:", {k.replace("model__", ""): (round(v, 4) if isinstance(v, float) else v)
+                                         for k, v in wide_search.best_params_.items()})
+"""
+)
+md(
+    """
+Neither the wider search nor stacking improves PR-AUC by more than the fold-to-fold standard deviation. The
+tuned gradient-boosting model sits on a plateau, so the remaining error comes from the overlap of the classes in
+feature space (section 2), not from under-optimization. The grid-search models are kept.
+"""
+)
+md("### 4.4 What drives the predictions? (permutation importance of the best model on the test set)")
 code(
     """
 best_key = test_results.sort_values("pr_auc", ascending=False).iloc[0]["key"]
@@ -383,7 +430,7 @@ imp.round(4)
 )
 md(
     """
-### 4.4 Error analysis of the best model
+### 4.5 Error analysis of the best model
 Which borrowers does the best model miss (false negatives) at its F2 threshold?
 """
 )
