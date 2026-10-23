@@ -116,8 +116,7 @@ T_START = time.perf_counter()
 )
 code(
     """
-csv_path = data.download_dataset()  # public Kaggle endpoint, see config.DATASET_URL
-print("Downloaded from:", config.DATASET_URL)
+csv_path = data.download_dataset()  # public sources and checksum: config.DATASET_URLS, DATASET_SHA256
 raw = data.load_raw(csv_path)
 print(raw.shape)
 raw.head()

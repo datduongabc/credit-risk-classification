@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import io
+import urllib.error
 import urllib.request
 import zipfile
 from dataclasses import dataclass
@@ -15,19 +17,39 @@ from sklearn.model_selection import train_test_split
 from . import config
 
 
-def download_dataset(data_dir: Path | None = None, url: str = config.DATASET_URL) -> Path:
-    """Download and unzip the Kaggle CSV once; later calls reuse the local copy."""
+def _fetch_csv(url: str) -> bytes:
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=120) as resp:
+        payload = resp.read()
+    # Kaggle serves a zip archive, the mirror serves the bare CSV.
+    if zipfile.is_zipfile(io.BytesIO(payload)):
+        with zipfile.ZipFile(io.BytesIO(payload)) as zf:
+            payload = zf.read(config.CSV_NAME)
+    return payload
+
+
+def download_dataset(data_dir: Path | None = None, urls: tuple[str, ...] = config.DATASET_URLS) -> Path:
+    """Download the CSV once from the first working source; later calls reuse the local copy."""
     data_dir = Path(data_dir or config.DATA_DIR)
     data_dir.mkdir(parents=True, exist_ok=True)
     csv_path = data_dir / config.CSV_NAME
     if csv_path.exists():
         return csv_path
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-    with urllib.request.urlopen(req, timeout=120) as resp:
-        payload = resp.read()
-    with zipfile.ZipFile(io.BytesIO(payload)) as zf:
-        zf.extract(config.CSV_NAME, data_dir)
-    return csv_path
+    errors = []
+    for url in urls:
+        try:
+            payload = _fetch_csv(url)
+        except (urllib.error.URLError, TimeoutError, KeyError, zipfile.BadZipFile) as exc:
+            errors.append(f"{url}: {exc}")
+            continue
+        digest = hashlib.sha256(payload).hexdigest()
+        if digest != config.DATASET_SHA256:
+            errors.append(f"{url}: unexpected SHA-256 {digest}")
+            continue
+        csv_path.write_bytes(payload)
+        print(f"Downloaded {config.CSV_NAME} from {url}")
+        return csv_path
+    raise RuntimeError("Could not download the dataset from any source:\n" + "\n".join(errors))
 
 
 def load_raw(csv_path: Path | None = None) -> pd.DataFrame:

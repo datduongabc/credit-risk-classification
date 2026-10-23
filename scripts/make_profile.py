@@ -18,12 +18,12 @@ import pandas as pd
 from ydata_profiling import ProfileReport
 
 ROOT = Path(__file__).resolve().parents[1]
-URL = "https://www.kaggle.com/api/v1/datasets/download/laotse/credit-risk-dataset"
+URL = "https://github.com/datduongabc/credit-risk-classification/releases/download/data-v1/credit_risk_dataset.csv"
 
 
 def main() -> None:
     csv = ROOT / "data" / "credit_risk_dataset.csv"
-    df = pd.read_csv(csv) if csv.exists() else pd.read_csv(URL, compression="zip")
+    df = pd.read_csv(csv) if csv.exists() else pd.read_csv(URL)
     report = ProfileReport(
         df,
         title="Credit Risk Dataset - automatic profile",

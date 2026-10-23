@@ -7,9 +7,15 @@ from pathlib import Path
 
 SEED = 42
 
-# Public, unauthenticated Kaggle download endpoint, so the notebook can fetch the data on
-# Colab without API keys or mounting a personal drive (assignment requirement).
-DATASET_URL = "https://www.kaggle.com/api/v1/datasets/download/laotse/credit-risk-dataset"
+# Public download sources, tried in order, so the notebook needs no API keys or personal drive
+# (assignment requirement). Kaggle answers anonymous downloads from Colab with HTTP 404, so the
+# primary source is a GitHub release mirror of the CC0 dataset; Kaggle stays as a fallback.
+DATASET_URLS = (
+    "https://github.com/datduongabc/credit-risk-classification/releases/download/data-v1/credit_risk_dataset.csv",
+    "https://www.kaggle.com/api/v1/datasets/download/laotse/credit-risk-dataset",
+)
+# Pins the exact file the reported results were produced from, whichever source served it.
+DATASET_SHA256 = "ce3c6d2167717bf1627d1c0c81cbccd28323cd4aa7b96d542599366d5ff6aac8"
 DATASET_PAGE = "https://www.kaggle.com/datasets/laotse/credit-risk-dataset"
 CSV_NAME = "credit_risk_dataset.csv"
 

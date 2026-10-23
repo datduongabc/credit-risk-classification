@@ -3,7 +3,8 @@
 
 \subsection{The Credit Risk Dataset}
 The dataset \cite{kaggle_credit} has \num{32581} rows and 12 columns: seven numeric features, four categorical features and the binary target (\cref{tab:overview}).
-It is downloaded in the notebook from Kaggle's public, unauthenticated endpoint.
+The dataset is released under CC0 (public domain).
+The notebook downloads it from a public mirror in the project's GitHub releases, falls back to Kaggle, and verifies its SHA-256 checksum, so every run uses exactly the same file.
 
 \begin{table}[H]
   \centering
