@@ -35,7 +35,8 @@ Predicting whether a borrower will default on a loan with three model families: 
 **On Google Colab (recommended):** open the Colab link above and choose *Runtime -> Run all*.
 The first cells clone this repository, install the missing libraries from `requirements.txt` and download the dataset from a public mirror in this repository's [releases](https://github.com/datduongabc/credit-risk-classification/releases/tag/data-v1) (Kaggle as a fallback), checking its SHA-256 checksum.
 Nothing is mounted and no credentials are needed.
-A full run takes up to about 2 hours on a free Colab runtime (about 30 minutes on two modern CPU cores); no GPU is needed.
+A full run takes up to about 2.5 hours on a free Colab runtime (about 35 minutes on two modern CPU cores); no GPU is needed.
+The deep learning models are trained with five seeds and reported as mean ± standard deviation, because their results vary slightly across hardware and PyTorch builds.
 
 **Locally:**
 

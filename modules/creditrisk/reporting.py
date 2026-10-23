@@ -83,10 +83,16 @@ def latex_table(
     column_format: str | None = None,
     size: str = "\\small",
     col_formats: dict[str, str] | None = None,
+    spread: dict[str, str] | None = None,
 ) -> str:
-    """Booktabs table written to reports/generated/<name>.tex (bolding the best per column)."""
+    """Booktabs table written to reports/generated/<name>.tex (bolding the best per column).
+
+    ``spread`` maps a column to the column holding its standard deviation, shown as ``mean ± sd``
+    in the rows where the deviation is present.
+    """
     df = df.copy()
     col_formats = col_formats or {}
+    spread = {col: df.pop(sd) for col, sd in (spread or {}).items()}
     numeric_cols = [pd.api.types.is_numeric_dtype(df[c]) for c in df.columns]
     for col in bold_max or []:
         best = df[col].max()
@@ -97,6 +103,9 @@ def latex_table(
             df[col] = df[col].map(lambda v, fmt=fmt: "--" if pd.isna(v) else fmt.format(v))
     df.columns = [_escape(str(c)) for c in df.columns]
     df = df.map(lambda v: _escape(v) if isinstance(v, str) and "\\textbf" not in v else v)
+    for col, sd in spread.items():
+        fmt = col_formats.get(col, float_fmt)
+        df[_escape(col)] = [v if pd.isna(e) else f"{v} $\\pm$ {fmt.format(e)}" for v, e in zip(df[_escape(col)], sd)]
     default_format = "".join("r" if num else "l" for num in numeric_cols)
     body = df.to_latex(index=False, escape=False, column_format=column_format or default_format)
     tex = (

@@ -6,14 +6,14 @@
 \toprule
 model & best\_params & CV PR-AUC & sd & CV ROC-AUC & CV F2 & time (s) \\
 \midrule
-Logistic Regression & C=10, class\_weight=None & 0.7538 & 0.0072 & 0.8827 & 0.6247 & 3.1 \\
-Linear SVM & C=1, class\_weight=None & 0.7473 & 0.0071 & 0.8801 & 0.6152 & 1.8 \\
-SVM (RBF) & C=10, gamma=scale & 0.8501 & 0.0045 & 0.9115 & 0.7634 & 126.0 \\
-k-NN & n\_neighbors=15, weights=distance & 0.8134 & 0.0058 & 0.8934 & 0.6459 & 10.4 \\
-Gaussian Naive Bayes & var\_smoothing=0.001 & 0.6229 & 0.0120 & 0.8552 & 0.6077 & 0.7 \\
-Decision Tree & class\_weight=None, max\_depth=10, min\_samples\_leaf=20 & 0.8598 & 0.0040 & 0.9151 & 0.7438 & 4.2 \\
-Random Forest & class\_weight=None, max\_features=0.5, min\_samples\_leaf=3 & 0.8902 & 0.0025 & 0.9341 & 0.7526 & 162.0 \\
-Hist. Gradient Boosting & class\_weight=None, learning\_rate=0.05, max\_iter=300, max\_leaf\_nodes=31 & 0.8988 & 0.0026 & 0.9441 & 0.7656 & 17.5 \\
+Logistic Regression & C=10, class\_weight=None & 0.7538 & 0.0072 & 0.8827 & 0.6247 & 3.6 \\
+Linear SVM & C=1, class\_weight=None & 0.7473 & 0.0071 & 0.8801 & 0.6152 & 2.4 \\
+SVM (RBF) & C=10, gamma=scale & 0.8501 & 0.0045 & 0.9115 & 0.7634 & 164.5 \\
+k-NN & n\_neighbors=15, weights=distance & 0.8134 & 0.0058 & 0.8934 & 0.6459 & 12.5 \\
+Gaussian Naive Bayes & var\_smoothing=0.001 & 0.6229 & 0.0120 & 0.8552 & 0.6077 & 0.9 \\
+Decision Tree & class\_weight=None, max\_depth=10, min\_samples\_leaf=20 & 0.8598 & 0.0040 & 0.9151 & 0.7438 & 5.6 \\
+Random Forest & class\_weight=None, max\_features=0.5, min\_samples\_leaf=3 & 0.8902 & 0.0025 & 0.9341 & 0.7526 & 198.4 \\
+Hist. Gradient Boosting & class\_weight=None, learning\_rate=0.05, max\_iter=300, max\_leaf\_nodes=31 & 0.8988 & 0.0026 & 0.9441 & 0.7656 & 22.1 \\
 \bottomrule
 \end{tabular}
 \end{adjustbox}

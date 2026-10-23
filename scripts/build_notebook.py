@@ -45,7 +45,7 @@ Task: predict whether a borrower will **default** on a loan (`loan_status = 1`) 
 
 Source code: {REPO_URL.removesuffix('.git')}
 
-**Runtime:** about 30 minutes on two modern CPU cores and up to about 2 hours on a free Colab runtime (no GPU
+**Runtime:** about 35 minutes on two modern CPU cores and up to about 2.5 hours on a free Colab runtime (no GPU
 needed). *Runtime -> Run all* runs everything with no manual steps. No personal cloud storage is mounted. The data comes from a public URL.
 """
 )
@@ -489,14 +489,20 @@ standardized. Categorical columns become integer codes that feed trainable **ent
   trained with AdamW and a class-weighted BCE loss. Early stopping uses the validation PR-AUC.
 * **TabNet** (Arik & Pfister, 2021): sequential attention that selects the features to use at each decision step.
 
+Each network is trained with five seeds (`deep.SEEDS`, derived from `config.SEED`) and reported as
+**mean ± standard deviation** over them. Training is deterministic for a given seed on one machine, but
+different CPUs and PyTorch builds round slightly differently, which can move the epoch at which early stopping
+halts; the spread over seeds shows how much of a single run's score is that kind of noise.
+
 ### 6.1 MLP architecture and training variants
 """
 )
 code(
     """
 torch.set_num_threads(CORES)
-mlp_results, mlp_models = deep.run_mlp_variants(X_train, y_train, X_test, y_test)
-display(mlp_results[["model", "val_pr_auc", "pr_auc", "roc_auc", "f2_tuned", "recall_tuned", "precision_tuned", "epochs", "fit_time"]].round(4))
+mlp_results, mlp_runs, mlp_models = deep.run_mlp_variants(X_train, y_train, X_test, y_test)
+display(deep.format_mean_std(mlp_results, ["val_pr_auc", "pr_auc", "roc_auc", "f2_tuned", "recall_tuned", "precision_tuned"])
+        .assign(epochs=mlp_results.epochs.round(1), fit_time=mlp_results.fit_time.round(1)))
 """
 )
 code(
@@ -507,26 +513,26 @@ fig, ax1 = plt.subplots(figsize=(7, 4))
 ax1.plot(hist.epoch, hist.train_loss, label="train loss (weighted BCE)", color="#4c72b0")
 ax2 = ax1.twinx(); ax2.plot(hist.epoch, hist.val_pr_auc, label="validation PR-AUC", color="#dd8452")
 ax1.set_xlabel("epoch"); ax1.set_ylabel("loss"); ax2.set_ylabel("PR-AUC")
-fig.legend(loc="center right"); ax1.set_title("Training curve of the reference MLP")
+fig.legend(loc="center right"); ax1.set_title(f"Training curve of the reference MLP (seed {config.SEED})")
 fig.tight_layout(); reporting.save_figure(fig, "mlp_training"); plt.show()
 """
 )
 md("### 6.2 TabNet")
 code(
     """
-tabnet = deep.TabNetWrapper().fit(X_train, y_train)
-tabnet_row = deep.evaluate_network("TabNet", tabnet, X_test, y_test)
-display(pd.DataFrame([tabnet_row]).round(4))
+tabnet_results, tabnet_runs, tabnet = deep.run_tabnet(X_train, y_train, X_test, y_test)
+display(deep.format_mean_std(tabnet_results, ["pr_auc", "roc_auc", "f2_tuned", "recall_tuned", "precision_tuned"])
+        .assign(epochs=tabnet_results.epochs.round(1), fit_time=tabnet_results.fit_time.round(1)))
 fig, ax = plt.subplots(figsize=(7, 4))
 tabnet.feature_importances().sort_values().plot.barh(ax=ax, color="#55a868")
-ax.set_title("TabNet attention-based feature importance"); fig.tight_layout()
+ax.set_title(f"TabNet attention-based feature importance (seed {config.SEED})"); fig.tight_layout()
 reporting.save_figure(fig, "tabnet_importance"); plt.show()
 """
 )
 md(
     """
 ### 6.3 Learned embeddings as features
-The 64-dimensional penultimate layer of the reference MLP is saved as a feature set. A plain logistic
+The 64-dimensional penultimate layer of the reference MLP (seed 42) is saved as a feature set. A plain logistic
 regression trained on it shows how much of the network's power lies in the learned representation.
 """
 )
@@ -546,13 +552,15 @@ display(pd.DataFrame([emb_row]).round(4))
 md("### 6.4 Traditional vs deep learning on the test set")
 code(
     """
-dl_table = pd.concat([mlp_results[mlp_results.model == "MLP 128-64 (reference)"], pd.DataFrame([tabnet_row])], ignore_index=True)
+dl_table = pd.concat([mlp_results[mlp_results.model == "MLP 128-64 (reference)"], tabnet_results], ignore_index=True)
 dl_table.to_csv(config.RESULTS_DIR / "test_deep.csv", index=False)
+display(deep.format_mean_std(dl_table, ["pr_auc", "roc_auc", "f2_tuned", "recall_tuned", "precision_tuned", "accuracy_tuned"]))
+# Curves need one model each, so the networks are drawn for the first seed.
 curves_dl = {
     pipeline.MODEL_LABELS[best_key]: (y_test, evaluation.scores_of(best[best_key], X_test)),
     "Logistic Regression": (y_test, evaluation.scores_of(best["logreg"], X_test)),
-    "MLP (embeddings)": (y_test, ref_mlp.predict_proba(X_test)[:, 1]),
-    "TabNet": (y_test, tabnet.predict_proba(X_test)[:, 1]),
+    f"MLP (embeddings, seed {config.SEED})": (y_test, ref_mlp.predict_proba(X_test)[:, 1]),
+    f"TabNet (seed {config.SEED})": (y_test, tabnet.predict_proba(X_test)[:, 1]),
 }
 evaluation.plot_roc_pr(curves_dl, path=config.FIGURES_DIR / "roc_pr_traditional_vs_deep.pdf", title_suffix=" (test set)"); plt.show()
 """
@@ -651,25 +659,35 @@ fig.tight_layout(); reporting.save_figure(fig, "bn_inference_error"); plt.show()
 )
 
 # ------------------------------------------------------------------------------ comparison
-md("## 8. Overall comparison (test set, 6,484 loans)")
+md(
+    """
+## 8. Overall comparison (test set, 6,484 loans)
+The deep models are the mean over their five seeds, with the standard deviation in the `_std` columns and as
+error bars.
+"""
+)
 code(
     """
+OVERALL_METRICS = {"pr_auc": "pr_auc", "roc_auc": "roc_auc", "f2": "f2_tuned", "recall": "recall_tuned",
+                   "precision": "precision_tuned", "accuracy": "accuracy_tuned"}
+
 def pick(df, name_col, name, family, label=None):
     r = df[df[name_col] == name].iloc[0]
-    return {"family": family, "model": label or name, "pr_auc": r.pr_auc, "roc_auc": r.roc_auc,
-            "f2": r.f2_tuned, "recall": r.recall_tuned, "precision": r.precision_tuned, "accuracy": r.accuracy_tuned}
+    row = {"family": family, "model": label or name, **{k: r[c] for k, c in OVERALL_METRICS.items()}}
+    # Only the seed-averaged deep models carry a spread.
+    return row | {f"{k}_std": r.get(f"{c}_std", np.nan) for k, c in OVERALL_METRICS.items()}
 
 overall = pd.DataFrame(
     [pick(test_results, "key", k, "Traditional", pipeline.MODEL_LABELS[k]) for k in best]
     + [pick(mlp_results, "model", "MLP 128-64 (reference)", "Deep learning", "MLP (entity embeddings)"),
-       pick(pd.DataFrame([tabnet_row]), "model", "TabNet", "Deep learning")]
+       pick(tabnet_results, "model", "TabNet", "Deep learning")]
     + [pick(bn_results, "structure", s, "Bayesian network", f"BN - {s}") for s in bn_results.structure]
 ).sort_values("pr_auc", ascending=False).reset_index(drop=True)
 overall.to_csv(config.RESULTS_DIR / "overall.csv", index=False)
 display(overall.round(4))
 fig, ax = plt.subplots(figsize=(9, 5.5))
 colors = overall.family.map({"Traditional": "#4c72b0", "Deep learning": "#dd8452", "Bayesian network": "#55a868"})
-ax.barh(overall.model[::-1], overall.pr_auc[::-1], color=colors[::-1])
+ax.barh(overall.model[::-1], overall.pr_auc[::-1], xerr=overall.pr_auc_std[::-1], color=colors[::-1], capsize=3)
 for fam, c in [("Traditional", "#4c72b0"), ("Deep learning", "#dd8452"), ("Bayesian network", "#55a868")]:
     ax.barh([], [], color=c, label=fam)
 ax.set_xlim(0.5, 1); ax.set_xlabel("PR-AUC on the test set"); ax.legend(loc="lower right")

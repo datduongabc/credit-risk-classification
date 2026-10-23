@@ -39,7 +39,7 @@ The submission follows the required layout: \ident{notebooks/}, \ident{modules/}
 \end{itemize}
 The notebook clones the repository, installs the missing libraries and downloads the dataset from a public link, without mounting any personal storage.
 Every number in this report is read from files that the notebook generates (\ident{reports/generated/}).
-All randomness is seeded, so a re-run reproduces the tables.
+All randomness is seeded, so a re-run reproduces the tables; the deep models, whose results vary slightly across hardware and PyTorch builds, are reported as the mean and standard deviation over five seeds, so a run on another machine lands within the reported spread.
 
 \subsection{Organization of the report}
 \Cref{sec:eda} analyses the data and derives the preprocessing decisions.

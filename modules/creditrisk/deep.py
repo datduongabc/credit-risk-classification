@@ -28,6 +28,11 @@ from .evaluation import compute_metrics, f2_threshold
 from .transformers import ENGINEERED_FEATURES, GroupMedianImputer, IQRClipper, feature_engineer
 
 
+# Deep results move slightly between hardware and PyTorch builds (early stopping can halt at a
+# different epoch), so each network is trained once per seed and reported as mean +- sd.
+SEEDS = tuple(config.SEED + i for i in range(5))
+
+
 def set_seed(seed: int = config.SEED) -> None:
     random.seed(seed)
     np.random.seed(seed)
@@ -242,6 +247,7 @@ class TabNetWrapper:
             weights=1,  # inverse-frequency sampling to counter the class imbalance
         )
         self.fit_time_ = time.perf_counter() - t0
+        self.epochs_ = len(self.model_.history.history["loss"])
         self.threshold_ = f2_threshold(np.asarray(y_val), self.model_.predict_proba(A_val)[:, 1])
         return self
 
@@ -279,18 +285,61 @@ def evaluate_network(name, model, X_test, y_test) -> dict:
     return row
 
 
-def run_mlp_variants(X_train, y_train, X_test, y_test, variants=None, verbose=True):
-    """Train each MLP variant; ``val_pr_auc`` (on the internal validation split) is what a
-    practitioner would select on, the test columns are reported for completeness."""
+def summarize_seeds(runs: pd.DataFrame) -> pd.DataFrame:
+    """One row per model: the mean of every numeric column over the seeds plus ``<column>_std``
+    (sample standard deviation across seeds)."""
+    cols = runs.select_dtypes("number").columns.drop("seed")
+    grouped = runs.groupby("model", sort=False)
+    out = grouped[cols].mean().join(grouped[cols].std().add_suffix("_std")).reset_index()
+    out.insert(1, "n_seeds", grouped.size().to_numpy())
+    return out
+
+
+def format_mean_std(summary: pd.DataFrame, cols, digits: int = 4) -> pd.DataFrame:
+    """Display copy of a seed summary with ``mean ± sd`` strings."""
+    out = summary[["model"]].copy()
+    for c in cols:
+        out[c] = [f"{m:.{digits}f} ± {s:.{digits}f}" for m, s in zip(summary[c], summary[f"{c}_std"])]
+    return out
+
+
+def run_mlp_variants(X_train, y_train, X_test, y_test, variants=None, seeds=SEEDS, verbose=True):
+    """Train each MLP variant once per seed; ``val_pr_auc`` (on the internal validation split) is
+    what a practitioner would select on, the test columns are reported for completeness.
+
+    Returns the per-variant summary (mean and sd over seeds), the per-seed runs and, per variant,
+    the model trained with the first seed."""
     rows, models = [], {}
     for name, cfg in (variants or MLP_VARIANTS).items():
-        m = MLPClassifier(cfg).fit(X_train, y_train)
-        row = {**evaluate_network(name, m, X_test, y_test), "val_pr_auc": m.best_val_pr_auc_, "epochs": len(m.history_)}
-        rows.append(row)
-        models[name] = m
+        for seed in seeds:
+            m = MLPClassifier(cfg, seed=seed).fit(X_train, y_train)
+            rows.append({**evaluate_network(name, m, X_test, y_test), "seed": seed,
+                         "val_pr_auc": m.best_val_pr_auc_, "epochs": len(m.history_)})
+            models.setdefault(name, m)
         if verbose:
-            print(f"[MLP] {name:32s} val PR-AUC={m.best_val_pr_auc_:.4f} test PR-AUC={row['pr_auc']:.4f} ({m.fit_time_:.0f}s, {row['epochs']} epochs)")
-    df = pd.DataFrame(rows)
+            r = pd.DataFrame(rows[-len(seeds):])
+            print(f"[MLP] {name:32s} val PR-AUC={r.val_pr_auc.mean():.4f}±{r.val_pr_auc.std():.4f} "
+                  f"test PR-AUC={r.pr_auc.mean():.4f}±{r.pr_auc.std():.4f} "
+                  f"({r.fit_time.mean():.0f}s, {r.epochs.mean():.0f} epochs per seed)")
+    runs = pd.DataFrame(rows)
+    summary = summarize_seeds(runs)
     config.ensure_dirs()
-    df.to_csv(config.RESULTS_DIR / "dl_mlp_variants.csv", index=False)
-    return df, models
+    runs.to_csv(config.RESULTS_DIR / "dl_mlp_variants_seeds.csv", index=False)
+    summary.to_csv(config.RESULTS_DIR / "dl_mlp_variants.csv", index=False)
+    return summary, runs, models
+
+
+def run_tabnet(X_train, y_train, X_test, y_test, seeds=SEEDS, verbose=True):
+    """Train TabNet once per seed; returns the summary row, the per-seed runs and the model
+    trained with the first seed."""
+    rows, models = [], []
+    for seed in seeds:
+        m = TabNetWrapper(seed=seed).fit(X_train, y_train)
+        rows.append({**evaluate_network("TabNet", m, X_test, y_test), "seed": seed, "epochs": m.epochs_})
+        models.append(m)
+        if verbose:
+            print(f"[TabNet] seed {seed}  test PR-AUC={rows[-1]['pr_auc']:.4f} ({m.fit_time_:.0f}s, {m.epochs_} epochs)")
+    runs = pd.DataFrame(rows)
+    config.ensure_dirs()
+    runs.to_csv(config.RESULTS_DIR / "dl_tabnet_seeds.csv", index=False)
+    return summarize_seeds(runs), runs, models[0]

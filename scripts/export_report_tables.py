@@ -91,17 +91,26 @@ def main() -> None:
     )
 
     mlp = pd.read_csv(R / "dl_mlp_variants.csv")
+    mlp_cols = {"val_pr_auc": "val PR-AUC", "pr_auc": "pr_auc", "roc_auc": "roc_auc", "f2_tuned": "F2", "recall_tuned": "recall"}
     latex_table(
-        mlp[["model", "val_pr_auc", "pr_auc", "roc_auc", "f2_tuned", "recall_tuned", "epochs", "fit_time"]].rename(
-            columns={"val_pr_auc": "val PR-AUC", "f2_tuned": "F2", "recall_tuned": "recall", "fit_time": "time (s)"}),
-        "tab_mlp", "MLP variants: validation PR-AUC (used for selection) and test metrics.", "tab:mlp",
-        size="\\scriptsize", col_formats={"time (s)": "{:.1f}"},
+        mlp[["model", *mlp_cols, *(f"{c}_std" for c in mlp_cols), "epochs", "fit_time"]].rename(
+            columns={**mlp_cols, **{f"{c}_std": f"{n} sd" for c, n in mlp_cols.items()}, "fit_time": "time (s)"}),
+        "tab_mlp",
+        f"MLP variants: validation PR-AUC (used for selection) and test metrics, mean $\\pm$ sd over {int(mlp.n_seeds[0])} seeds "
+        "(epochs and training time are per-seed means).",
+        "tab:mlp", size="\\scriptsize", col_formats={"time (s)": "{:.1f}", "epochs": "{:.0f}"},
+        spread={n: f"{n} sd" for n in mlp_cols.values()},
     )
     deep = pd.read_csv(R / "test_deep.csv")
+    deep_cols = {"pr_auc": "pr_auc", "roc_auc": "roc_auc", **TUNED}
     latex_table(
-        deep[["model", "pr_auc", "roc_auc", "threshold", *TUNED, "fit_time"]].rename(columns={**TUNED, "fit_time": "time (s)"}),
-        "tab_deep", "Deep learning models on the test set (threshold tuned for F2 on a validation split).", "tab:deep",
-        size="\\small", col_formats={"time (s)": "{:.1f}"},
+        deep[["model", *deep_cols, *(f"{c}_std" for c in deep_cols), "fit_time"]].rename(
+            columns={**deep_cols, **{f"{c}_std": f"{n} sd" for c, n in deep_cols.items()}, "fit_time": "time (s)"}),
+        "tab_deep",
+        f"Deep learning models on the test set, mean $\\pm$ sd over {int(deep.n_seeds[0])} seeds "
+        "(threshold tuned for F2 on a validation split; training time per seed).",
+        "tab:deep", size="\\small", col_formats={"time (s)": "{:.1f}"},
+        spread={n: f"{n} sd" for n in deep_cols.values()},
     )
 
     sens = pd.read_csv(R / "bn_sensitivity.csv")
@@ -139,10 +148,12 @@ def main() -> None:
     ve_time = inf[inf.method == "Variable elimination"].set_index("evidence_size")["time_per_query"]
 
     overall = pd.read_csv(R / "overall.csv")
+    spread = {c.removesuffix("_std"): c for c in overall.columns if c.endswith("_std")}
     latex_table(
         overall, "tab_overall",
-        "All model families on the test set, ranked by PR-AUC (F2, recall, precision and accuracy at the tuned threshold).",
-        "tab:overall", bold_max=["pr_auc", "roc_auc", "f2", "recall"], size="\\small",
+        "All model families on the test set, ranked by PR-AUC (F2, recall, precision and accuracy at the tuned threshold); "
+        f"deep models are mean $\\pm$ sd over {int(deep.n_seeds[0])} seeds.",
+        "tab:overall", bold_max=["pr_auc", "roc_auc", "f2", "recall"], size="\\small", spread=spread,
     )
 
     best = test.iloc[0]
