@@ -14,7 +14,7 @@ Predicting whether a borrower will default on a loan with three model families: 
 
 | Full name | Student ID | Email | Contribution |
 |---|---|---|---|
-| Dương Nguyễn Tấn Đạt | 2352222 | EMAIL_PLACEHOLDER | 100% |
+| Dương Nguyễn Tấn Đạt | 2352222 | dat.duongtandat385@hcmut.edu.vn | 100% |
 
 ## Objectives
 
