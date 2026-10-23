@@ -1,0 +1,106 @@
+# Credit Risk Prediction - Machine Learning Assignment (CO3117)
+
+Predicting whether a borrower will default on a loan with three model families: a configurable traditional machine learning pipeline, a deep learning pipeline, and a Bayesian network implemented from scratch.
+
+| | |
+|---|---|
+| Course | Machine Learning (Học máy), course code **CO3117** |
+| Semester | Semester 1, academic year 2025-2026 |
+| University | Ho Chi Minh City University of Technology (HCMUT), VNU-HCM - Faculty of Computer Science and Engineering |
+| Advisor | Dr. Lê Thành Sách (TS. Lê Thành Sách) |
+| Program | Talented Engineering (Kỹ sư Tài năng) - includes the Bayesian network extension |
+
+## Team
+
+| Full name | Student ID | Email | Contribution |
+|---|---|---|---|
+| Dương Nguyễn Tấn Đạt | 2352222 | EMAIL_PLACEHOLDER | 100% |
+
+## Objectives
+
+- Build a complete traditional pipeline (EDA, preprocessing, feature extraction and selection, training, evaluation) for tabular data, with every step configurable.
+- Compare imputation, outlier handling, encoding, scaling, PCA and feature selection, class-imbalance strategies, and eight classifiers through controlled ablation experiments.
+- Add a deep learning pipeline (entity-embedding MLP, TabNet) and compare it with the traditional one.
+- Talented-engineering extension: implement a Bayesian network with exact inference (variable elimination) and approximate inference (rejection sampling, likelihood weighting, Gibbs sampling), and apply it to the same prediction problem.
+
+## Links
+
+- Colab notebook: [notebooks/credit_risk_pipeline.ipynb](https://colab.research.google.com/github/datduongabc/credit-risk-classification/blob/main/notebooks/credit_risk_pipeline.ipynb)
+- Report (PDF): [reports/report.pdf](reports/report.pdf)
+- Automatic EDA profile (ydata-profiling): [reports/eda_profile.html](reports/eda_profile.html)
+- Dataset: [Kaggle - Credit Risk Dataset](https://www.kaggle.com/datasets/laotse/credit-risk-dataset) (32,581 loans, 11 features, target `loan_status`)
+
+## Running the notebook
+
+**On Google Colab (recommended):** open the Colab link above and choose *Runtime -> Run all*.
+The first cells clone this repository, install the missing libraries from `requirements.txt` and download the dataset from Kaggle's public endpoint.
+Nothing is mounted and no credentials are needed.
+A full run takes about 30 minutes on the default CPU runtime.
+
+**Locally:**
+
+```bash
+git clone https://github.com/datduongabc/credit-risk-classification.git
+cd credit-risk-classification
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt torch jupyter
+jupyter nbconvert --to notebook --execute notebooks/credit_risk_pipeline.ipynb --output credit_risk_pipeline.ipynb
+```
+
+Run the unit tests with `pip install pytest && python -m pytest`.
+
+Requirements: Python 3.10+, scikit-learn >= 1.7, imbalanced-learn >= 0.14, PyTorch, pytorch-tabnet, pandas, matplotlib, seaborn, h5py, networkx.
+
+## Project structure
+
+```
+.
+├── notebooks/
+│   └── credit_risk_pipeline.ipynb   # Colab front-end: runs every experiment end to end
+├── modules/creditrisk/              # Python package imported by the notebook
+│   ├── config.py                    # paths, dataset URL, column roles, seed
+│   ├── data.py                      # download, cleaning, stratified split
+│   ├── eda.py                       # EDA tables and figures
+│   ├── transformers.py              # grade-wise imputer, IQR clipper, feature engineering
+│   ├── pipeline.py                  # PipelineConfig -> scikit-learn / imblearn pipeline
+│   ├── experiments.py               # ablation suites, grid search, threshold tuning
+│   ├── evaluation.py                # metrics (PR-AUC, F2, ...), CV, plots
+│   ├── deep.py                      # entity-embedding MLP (PyTorch) and TabNet
+│   ├── reporting.py                 # feature export (.npy/.h5), LaTeX tables
+│   └── bayesnet/                    # Bayesian network from scratch
+│       ├── graph.py                 # DAG, topological sort, Markov blanket
+│       ├── factor.py                # factor product / marginalization / reduction
+│       ├── network.py               # CPT learning, likelihood, ancestral sampling
+│       ├── structure.py             # Naive Bayes, TAN, BIC hill climbing, expert DAG
+│       ├── inference.py             # variable elimination, enumeration, rejection,
+│       │                            # likelihood weighting, Gibbs sampling
+│       ├── discretize.py            # quantile discretization
+│       └── experiments.py           # BN experiments
+├── features/                        # extracted features (.npy per set + credit_features.h5)
+├── reports/
+│   ├── report.pdf                   # final report
+│   ├── eda_profile.html             # automatic EDA profile
+│   ├── latex/                       # LaTeX source (HCMUT template)
+│   ├── figures/                     # figures generated by the notebook
+│   └── generated/                   # LaTeX tables generated by the notebook
+├── results/                         # CSV results of every experiment
+├── tests/                           # unit tests (pipeline, Bayesian network)
+├── scripts/
+│   ├── build_notebook.py            # generates the notebook from code
+│   ├── export_report_tables.py      # results/*.csv -> LaTeX tables for the report
+│   └── make_profile.py              # ydata-profiling overview -> reports/eda_profile.html
+└── requirements.txt
+```
+
+## Building the report
+
+```bash
+python scripts/export_report_tables.py   # after running the notebook
+cd reports/latex
+latexmk -pdf -shell-escape report.tex   # minted needs -shell-escape and Pygments
+cp report.pdf ../report.pdf
+```
+
+The tables in the report are generated from the notebook's saved results (`results/*.csv`), so re-running the notebook, the export script and LaTeX keeps every number consistent.
+
+The automatic EDA profile is generated separately, because ydata-profiling pins older numpy/pandas versions (see `scripts/make_profile.py`).

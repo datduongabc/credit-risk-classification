@@ -1,0 +1,97 @@
+% Build: latexmk -pdf -shell-escape report.tex   (minted, loaded by codespace.sty, needs -shell-escape)
+\documentclass[twoside,final]{hcmut-report}
+\usepackage{codespace}
+
+\usepackage{gensymb,textcomp}
+\usepackage{array,longtable,multicol,multirow,siunitx,tabularx}
+\usepackage{enumitem}
+\usepackage{caption,subcaption,float}
+\usepackage[export]{adjustbox}
+\usepackage{bm}
+\usepackage[ruled,vlined,linesnumbered]{algorithm2e}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,fit,calc}
+\usepackage[nameinlink]{cleveref}
+
+\graphicspath{{../figures/}{graphics/}}
+
+% Live numbers written by the notebook (section 8.1).
+\input{../generated/values.tex}
+
+\coursename{Machine Learning (CO3117)}
+\reporttype{Assignment Report}
+\title{Credit Risk Prediction with Traditional Machine Learning, Deep Learning and Bayesian Networks}
+\advisor{& Dr. Le Thanh Sach &}
+\stuname{%
+  & Duong Nguyen Tan Dat & 2352222 \\
+}
+
+\AtBeginDocument{\counterwithin{lstlisting}{section}}
+\AtBeginDocument{\counterwithin{algocf}{section}}
+
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\newcommand{\Fbeta}{F_{\beta}}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator{\Pa}{Pa}
+\newcommand{\pa}{\mathrm{pa}}
+
+\begin{document}
+\coverpage%
+
+\section*{Member list \& workload}
+\addcontentsline{toc}{section}{Member list \& workload}
+\begin{center}
+  \begin{tabular}{clcc}
+    \toprule
+    \textbf{No.} & \textbf{Full name} & \textbf{Student ID} & \textbf{Contribution} \\
+    \midrule
+    1 & Duong Nguyen Tan Dat & 2352222 & 100\% \\
+    \bottomrule
+  \end{tabular}
+\end{center}
+
+\noindent The group has a single member, who carried out every task listed below.
+
+\begin{center}
+  \small
+  \begin{tabularx}{\linewidth}{lXc}
+    \toprule
+    \textbf{Work item} & \textbf{Description} & \textbf{Done} \\
+    \midrule
+    Dataset selection and EDA & Data quality audit, distributions, correlations, missing-value analysis & 100\% \\
+    Traditional pipeline & Configurable preprocessing, six ablation suites, tuning of eight classifiers & 100\% \\
+    Deep learning pipeline & Entity-embedding MLP (seven variants), TabNet, learned features & 100\% \\
+    Bayesian network (extension) & From-scratch DAG, learning, exact and approximate inference & 100\% \\
+    Engineering & Python package, unit tests, Colab notebook, GitHub repository & 100\% \\
+    Report & This document & 100\% \\
+    \bottomrule
+  \end{tabularx}
+\end{center}
+\clearpage
+
+\begin{abstract}
+  \input{chapters/abstract}
+\end{abstract}
+\clearpage
+
+\tableofcontents
+\listoffigures
+\listoftables
+\listofalgorithms
+\clearpage
+
+\input{chapters/introduction}
+\input{chapters/eda}
+\input{chapters/methodology}
+\input{chapters/experiments}
+\input{chapters/discussion}
+\input{chapters/conclusion}
+
+\clearpage
+\bibliographystyle{plain}
+\bibliography{refs/references}
+
+\clearpage
+\appendix
+\input{chapters/appendix}
+
+\end{document}

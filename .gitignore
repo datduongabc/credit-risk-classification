@@ -1,0 +1,21 @@
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.pytest_cache/
+data/
+# LaTeX build artifacts
+reports/latex/*.aux
+reports/latex/*.log
+reports/latex/*.out
+reports/latex/*.toc
+reports/latex/*.lof
+reports/latex/*.lot
+reports/latex/*.lol
+reports/latex/*.bbl
+reports/latex/*.blg
+reports/latex/*.fls
+reports/latex/*.fdb_latexmk
+reports/latex/*.synctex.gz
+reports/latex/_minted*/
+reports/latex/svg-inkscape/
+mlAssignments_v1.1.pdf

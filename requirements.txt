@@ -1,0 +1,9 @@
+# Colab already ships numpy, pandas, matplotlib, torch, h5py and networkx; the minimum versions
+# below are the APIs this project relies on (e.g. KBinsDiscretizer.quantile_method needs 1.7).
+scikit-learn>=1.7
+imbalanced-learn>=0.14
+pytorch-tabnet>=4.1
+pandas>=2.2
+seaborn>=0.13
+h5py>=3.10
+networkx>=3.2

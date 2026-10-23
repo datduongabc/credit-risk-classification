@@ -1,0 +1,286 @@
+\section{Methodology}
+\label{sec:method}
+
+This section describes the evaluation protocol shared by all experiments and then the three modelling approaches.
+\Cref{fig:architecture} gives an overview of how the data flows through the project.
+
+\begin{figure}[H]
+  \centering
+  \begin{tikzpicture}[
+      node distance=0.55cm and 0.5cm,
+      box/.style={draw, rounded corners, align=center, font=\footnotesize, minimum height=0.9cm, text width=2.5cm, fill=#1},
+      box/.default=blue!8,
+      arr/.style={-{Stealth[length=2mm]}, thick}
+    ]
+    \node[box=gray!15] (raw) {Raw CSV\\(Kaggle, 32{,}581 rows)};
+    \node[box=gray!15, right=of raw] (clean) {Rule-based cleaning\\duplicates, impossible values};
+    \node[box=gray!15, right=of clean] (split) {Stratified split\\80\% train / 20\% test};
+    \node[box, below=1.1cm of raw] (trad) {Traditional pipeline\\impute $\to$ engineer $\to$ clip $\to$ encode $\to$ scale $\to$ select/PCA $\to$ resample $\to$ classifier};
+    \node[box=orange!12, right=of trad] (dl) {Deep pipeline\\impute, scale, integer codes $\to$ embeddings $\to$ MLP / TabNet};
+    \node[box=green!10, right=of dl] (bn) {Bayesian network\\quantile bins $\to$ structure $\to$ CPTs $\to$ inference};
+    \node[box=gray!15, below=1.1cm of dl] (eval) {Common evaluation\\5-fold CV on train, F2 threshold, test set: PR-AUC, ROC-AUC, F2, recall, precision};
+    \node[box=gray!15, right=of eval] (feat) {Saved features\\\code{.npy} / \code{.h5}};
+    \draw[arr] (raw) -- (clean);
+    \draw[arr] (clean) -- (split);
+    \draw[arr] (split.south) -- ++(0,-0.4) -| (trad.north);
+    \draw[arr] (split.south) -- ++(0,-0.4) -| (dl.north);
+    \draw[arr] (split.south) -- (bn.north);
+    \draw[arr] (trad.south) |- (eval.west);
+    \draw[arr] (dl) -- (eval);
+    \draw[arr] (bn.south) |- (eval.east);
+    \draw[arr, dashed] (trad.south) -- ++(0,-1.75) -| (feat.south);
+  \end{tikzpicture}
+  \caption{Overview of the project: one cleaned and split dataset feeds three model families that share the same evaluation protocol.}
+  \label{fig:architecture}
+\end{figure}
+
+\subsection{Evaluation protocol}
+\label{subsec:protocol}
+
+\paragraph{Data split.}
+After rule-based cleaning (\Cref{subsec:quality}), the data are split once into a stratified training set (80\%) and test set (20\%) with a fixed seed.
+Every learned step (imputation statistics, scaling parameters, PCA axes, discretization bins, network weights, CPTs, decision thresholds) is estimated on training data only.
+The test set is used once per final model.
+
+\paragraph{Cross-validation.}
+Model selection uses 5-fold stratified cross-validation on the training set.
+Because every preprocessing step lives inside one pipeline object, it is refitted on each training fold, so the validation fold never leaks into the preprocessing statistics.
+
+\paragraph{Metrics.}
+Let $TP, FP, FN, TN$ count the outcomes for the positive class (default).
+We report
+\begin{align}
+  \text{precision} &= \frac{TP}{TP + FP}, &
+  \text{recall} &= \frac{TP}{TP + FN}, &
+  \Fbeta &= \frac{(1 + \beta^2)\,\text{precision}\cdot\text{recall}}{\beta^2\,\text{precision} + \text{recall}},
+  \label{eq:fbeta}
+\end{align}
+together with accuracy, the area under the ROC curve (ROC-AUC) and the area under the precision-recall curve (PR-AUC, computed as average precision).
+
+\paragraph{Why PR-AUC and F2 instead of accuracy or recall alone.}
+Defaults make up only 21.8\% of the loans, so the trivial ``never default'' rule already reaches 78\% accuracy.
+For a lender, a missed defaulter (false negative) loses the principal, whereas a rejected good applicant (false positive) loses only the interest margin.
+Recall on the default class is therefore the quantity of interest, but recall alone is degenerate: flagging every applicant gives recall 1.
+We consequently
+\begin{enumerate}[nosep]
+  \item rank models and select hyper-parameters by \textbf{PR-AUC}, a threshold-free measure that, unlike ROC-AUC, is sensitive to performance on the minority class \cite{saito2015}; and
+  \item choose each model's operating threshold to maximize \textbf{F2} ($\beta = 2$ in \cref{eq:fbeta}), which weights recall twice as much as precision \cite{rijsbergen1979}.
+\end{enumerate}
+The threshold is tuned by internal cross-validation on the training set (\code{TunedThresholdClassifierCV}) for the traditional models, and on a held-out 15\% validation split of the training set for the neural networks and Bayesian networks.
+
+\subsection{Traditional machine learning pipeline}
+\label{subsec:trad}
+
+The pipeline is assembled by a single function from a declarative \code{PipelineConfig}, shown in \cref{lst:config}.
+All components are standard scikit-learn \cite{sklearn} or imbalanced-learn \cite{imblearn} classes, except two small transformers that have no library equivalent: grade-wise median imputation and IQR clipping.
+
+\begin{listing}[H]
+  \begin{minted}[fontsize=\footnotesize, frame=lines, bgcolor=gray!5]{python}
+@dataclass(frozen=True)
+class PipelineConfig:
+    imputer: str = "median"          # mean | median | group_median | knn | iterative
+    add_indicator: bool = False      # append missing-value indicator columns
+    feature_engineering: bool = False
+    outlier: str = "none"            # none | clip_iqr | log
+    grade_encoding: str = "ordinal"  # ordinal | onehot
+    scaler: str = "standard"         # none | standard | minmax | robust
+    feature_range: tuple = (0.0, 1.0)  # used by MinMaxScaler
+    select_k: int | None = None      # SelectKBest(mutual information)
+    pca_variance: float | None = None  # e.g. 0.90, 0.95
+    resampler: str = "none"          # none | smote | undersample
+    class_weight: str | None = None  # None | "balanced"
+    model: str = "logreg"            # one of the 8 classifiers below
+    model_params: dict = field(default_factory=dict)
+
+pipe = build_pipeline(PipelineConfig(imputer="group_median", scaler="minmax",
+                                     feature_range=(-1, 1), pca_variance=0.95, model="svm"))
+  \end{minted}
+  \caption{Every pipeline step is selected through one configuration object.}
+  \label{lst:config}
+\end{listing}
+
+\subsubsection{Missing-value imputation}
+Five strategies are available.
+\emph{Mean} and \emph{median} imputation replace a missing value by a training statistic of its column.
+\emph{Grade-wise median} imputation fills \code{loan_int_rate} with the median rate of the applicant's loan grade, which the EDA shows to be the main driver of the rate (\cref{fig:rate_grade}).
+\emph{KNN} imputation \cite{troyanskaya2001} averages the five nearest neighbours in standardized feature space.
+\emph{Iterative} imputation (MICE) \cite{mice} regresses each incomplete column on the others in round-robin fashion.
+Optionally, binary missing-value indicators are appended so that the model can exploit informative missingness \cite{rubin1987}.
+
+\subsubsection{Feature engineering and outliers}
+Four domain features can be added: $\log(1+\text{income})$, $\log(1+\text{amount})$, income per year of credit history, and the product of the interest rate and the loan-to-income ratio, which approximates the repayment burden.
+Outliers are handled by IQR winsorizing, which clips every value $x$ of a column to $[Q_1 - 1.5\,\mathrm{IQR},\; Q_3 + 1.5\,\mathrm{IQR}]$ with quartiles learned on the training fold, or by a $\log(1+x)$ transform of all numeric columns.
+
+\subsubsection{Encoding and scaling}
+Nominal variables (\code{person_home_ownership}, \code{loan_intent}, \code{cb_person_default_on_file}) are one-hot encoded.
+The loan grade has a natural order A~$<$~B~$<\dots<$~G, so it can be encoded either ordinally (0--6) or one-hot.
+Numeric features can be standardized ($z = (x - \mu)/\sigma$), min-max scaled to a configurable range $[a, b]$ via $x' = a + (b - a)(x - x_{\min})/(x_{\max} - x_{\min})$, or robust-scaled with the median and IQR.
+
+\subsubsection{Feature selection and dimensionality reduction}
+\code{SelectKBest} keeps the $k$ encoded features with the highest mutual information with the target.
+PCA \cite{jolliffe2016} projects the scaled features onto the leading principal components that together retain a chosen fraction of the variance (80\%, 90\%, 95\% or 99\%).
+
+\subsubsection{Class imbalance}
+Three remedies are compared: class weights inversely proportional to class frequency ($w_c = n / (2 n_c)$), SMOTE \cite{smote}, which synthesizes minority samples by interpolating between minority neighbours, and random under-sampling of the majority class.
+Resampling is applied only to the training folds (it is a pipeline step that is skipped at prediction time).
+
+\subsubsection{Classifiers}
+\Cref{tab:classifiers} lists the eight classifiers.
+Six of them are suggested by the assignment; Gaussian Naive Bayes and histogram-based gradient boosting are added as a probabilistic baseline and as a strong modern tree ensemble.
+
+\begin{table}[H]
+  \centering
+  \small
+  \begin{tabularx}{\linewidth}{lX}
+    \toprule
+    \textbf{Classifier} & \textbf{Decision function / idea} \\
+    \midrule
+    Logistic Regression & $P(y=1 \mid \bm{x}) = \sigma(\bm{w}^\top \bm{x} + b)$, $L_2$-regularized log-loss with strength $1/C$ \\
+    Linear SVM & Hinge loss with a linear decision boundary \\
+    SVM (RBF) & Maximum-margin classifier with kernel $k(\bm{x}, \bm{x}') = \exp(-\gamma \lVert \bm{x} - \bm{x}' \rVert^2)$ \cite{cortes1995} \\
+    $k$-NN & Majority (or distance-weighted) vote of the $k$ nearest training points \\
+    Gaussian Naive Bayes & $P(y \mid \bm{x}) \propto P(y) \prod_j \mathcal{N}(x_j; \mu_{jy}, \sigma^2_{jy})$ \\
+    Decision Tree & Recursive axis-aligned splits minimizing Gini impurity \\
+    Random Forest & Bagged decorrelated trees with random feature subsets \cite{breiman2001} \\
+    Hist.\ Gradient Boosting & Additive trees fitted to the gradient of the log-loss on binned features \cite{friedman2001gbm,lightgbm} \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Classifiers available in the traditional pipeline.}
+  \label{tab:classifiers}
+\end{table}
+
+\subsection{Deep learning pipeline}
+\label{subsec:dl}
+
+The deep pipeline replaces hand-made encodings with representations learned end to end (PyTorch \cite{pytorch}).
+Preprocessing is reduced to what the optimizer needs: numeric columns are imputed, clipped and standardized, and each categorical column is mapped to integer codes, with code 0 reserved for categories unseen during training.
+
+\paragraph{Entity-embedding MLP.}
+Following \cite{entity_embeddings}, every categorical variable $c$ with $n_c$ levels owns a trainable embedding table $E_c \in \mathbb{R}^{n_c \times d_c}$ with $d_c = \min(8, \lceil n_c / 2 \rceil)$.
+The embeddings are concatenated with the numeric vector and passed through $L$ blocks of Linear $\to$ BatchNorm \cite{batchnorm} $\to$ ReLU $\to$ Dropout \cite{dropout}, followed by a linear output producing a logit $z$.
+Training minimizes the class-weighted binary cross-entropy
+\begin{equation}
+  \mathcal{L} = -\frac{1}{n}\sum_{i=1}^n \Big[ w_+ \, y_i \log \sigma(z_i) + (1 - y_i) \log\big(1 - \sigma(z_i)\big) \Big],
+  \qquad w_+ = \frac{n_0}{n_1},
+\end{equation}
+with AdamW \cite{adamw} (learning rate $2\times10^{-3}$, weight decay $10^{-4}$, batch size 512), a learning rate halved when the validation PR-AUC stalls for three epochs, and early stopping with patience 10 on the validation PR-AUC.
+Seven variants (\cref{tab:mlp}) vary the width, depth, dropout, embedding versus one-hot input, class weighting and the engineered features.
+The 64-dimensional output of the last hidden layer is saved as a learned feature set.
+
+\paragraph{TabNet.}
+TabNet \cite{tabnet} processes the features in several decision steps.
+At each step a sparse attention mask (sparsemax) selects which features to use, which yields built-in, instance-wise feature importance.
+We use $n_d = n_a = 16$, four steps, relaxation $\gamma = 1.5$, 4-dimensional categorical embeddings and inverse-frequency sampling against the class imbalance.
+
+\subsection{Bayesian network (extension for the talented-engineering program)}
+\label{subsec:bn}
+
+A Bayesian network (BN) represents a joint distribution over discrete variables $X_1, \dots, X_n$ by a directed acyclic graph $G$ and one conditional probability table (CPT) per node \cite{koller2009}:
+\begin{equation}
+  P(X_1, \dots, X_n) = \prod_{i=1}^{n} P\big(X_i \mid \Pa_G(X_i)\big).
+  \label{eq:bn_factorization}
+\end{equation}
+Everything below is implemented from scratch with NumPy in \code{modules/creditrisk/bayesnet/}.
+\Cref{tab:bn_modules} maps the components to files.
+
+\begin{table}[H]
+  \centering
+  \small
+  \begin{tabularx}{\linewidth}{lX}
+    \toprule
+    \textbf{File} & \textbf{Content} \\
+    \midrule
+    \code{graph.py} & DAG with cycle detection on insertion, Kahn's topological sort, Markov blanket \\
+    \code{factor.py} & Discrete factor with product, marginalization (sum-out) and evidence reduction \\
+    \code{network.py} & CPT estimation, log-likelihood, vectorized ancestral sampling \\
+    \code{structure.py} & Naive Bayes, TAN (Chow-Liu), BIC hill climbing, expert DAG \\
+    \code{inference.py} & Variable elimination, enumeration, rejection sampling, likelihood weighting, Gibbs sampling \\
+    \code{discretize.py} & Quantile binning of numeric features learned on the training split \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Bayesian-network modules written for this project.}
+  \label{tab:bn_modules}
+\end{table}
+
+\subsubsection{Discretization and missing values}
+Each numeric feature is cut into $B$ quantile bins learned on the training split ($B$ is chosen on a validation split, \cref{tab:bn_sens}).
+Missing values are \emph{not} imputed: they stay unobserved.
+During learning, the CPT of $X_i$ is estimated from the rows in which $X_i$ and all its parents are observed (available-case analysis).
+During prediction, a missing feature is simply left out of the evidence and marginalized by inference, which is the principled treatment of data missing at random.
+
+\subsubsection{Parameter learning}
+With a symmetric Dirichlet($\alpha$) prior, the maximum a posteriori CPT entries are smoothed relative frequencies
+\begin{equation}
+  \hat{\theta}_{x \mid \bm{u}} = \frac{N(x, \bm{u}) + \alpha}{N(\bm{u}) + \alpha\, r_i},
+\end{equation}
+where $N(\cdot)$ are counts in the training data and $r_i$ is the number of states of $X_i$.
+$\alpha = 1$ is Laplace smoothing; the sensitivity to $\alpha$ is studied in \cref{tab:bn_sens}.
+
+\subsubsection{Structures}
+Four structures are compared.
+\begin{itemize}[nosep]
+  \item \textbf{Naive Bayes}: the class is the only parent of every feature.
+  \item \textbf{TAN} (tree-augmented Naive Bayes) \cite{friedman1997bnc}: Naive Bayes plus a maximum-weight spanning tree over the features, where the weight of the pair $(X_i, X_j)$ is the conditional mutual information $I(X_i; X_j \mid C)$ \cite{chowliu1968}. The tree is built with Prim's algorithm.
+  \item \textbf{Hill climbing on BIC}: greedy search over single-edge additions, deletions and reversals that keep the graph acyclic, with at most three parents per node. It maximizes
+  \begin{equation}
+    \mathrm{BIC}(G) = \sum_{i} \Big[ \sum_{x, \bm{u}} N(x, \bm{u}) \log \frac{N(x, \bm{u})}{N(\bm{u})} - \frac{\log N_i}{2} \, q_i (r_i - 1) \Big],
+  \end{equation}
+  where $q_i$ is the number of parent configurations \cite{schwarz1978}. Because the score decomposes over families, each move is re-scored locally and family scores are cached.
+  \item \textbf{Expert DAG}: a causal story of a loan application written before inspecting the learned graphs. Age drives employment length, credit history and income. Income and amount determine the loan-to-income ratio. Past defaults determine the grade, which sets the interest rate. Default depends on the grade, the repayment burden, housing and the loan purpose.
+\end{itemize}
+
+\subsubsection{Exact inference: variable elimination}
+Any query $P(Q \mid \bm{e})$ is answered by summing hidden variables out of the product of reduced CPT factors (\cref{alg:ve}) \cite{zhangpoole1994}.
+Two optimizations matter.
+First, variables that are not ancestors of $Q$ or $\bm{e}$ are \emph{barren}: their factors sum to one and are dropped before elimination.
+Second, the elimination order is chosen greedily by the min-weight heuristic, which eliminates next the variable whose intermediate factor would be smallest.
+For correctness, the unit tests compare variable elimination with brute-force enumeration of the full joint on random networks and require agreement to $10^{-12}$.
+
+\begin{algorithm}[H]
+  \caption{Variable elimination for $P(Q \mid \bm{e})$}
+  \label{alg:ve}
+  \KwIn{network $(G, \{\theta_i\})$, query variable $Q$, evidence $\bm{e}$}
+  $R \leftarrow$ ancestors of $\{Q\} \cup \mathrm{vars}(\bm{e})$ in $G$ \tcp*{prune barren nodes}
+  $\mathcal{F} \leftarrow \{\, \phi_i = P(X_i \mid \Pa(X_i))[\bm{e}] : X_i \in R \,\}$ \tcp*{reduce by evidence}
+  $H \leftarrow R \setminus (\{Q\} \cup \mathrm{vars}(\bm{e}))$\;
+  \For{$Z \in \textsc{MinWeightOrder}(\mathcal{F}, H)$}{
+    $\mathcal{F}_Z \leftarrow \{\phi \in \mathcal{F} : Z \in \mathrm{scope}(\phi)\}$\;
+    $\tau \leftarrow \sum_{z} \prod_{\phi \in \mathcal{F}_Z} \phi$\;
+    $\mathcal{F} \leftarrow (\mathcal{F} \setminus \mathcal{F}_Z) \cup \{\tau\}$\;
+  }
+  \Return normalize$\big(\prod_{\phi \in \mathcal{F}} \phi\big)$\;
+\end{algorithm}
+
+\subsubsection{Approximate inference}
+Three sampling algorithms are implemented and vectorized over samples \cite{aima,koller2009}.
+\begin{itemize}[nosep]
+  \item \textbf{Rejection sampling} draws $N$ samples in topological order from \cref{eq:bn_factorization} and keeps those consistent with $\bm{e}$. The acceptance rate equals $P(\bm{e})$, which shrinks exponentially with the number of evidence variables.
+  \item \textbf{Likelihood weighting} \cite{fungchang1990} clamps the evidence variables, samples the others and weights each sample by $w = \prod_{E_j \in \bm{e}} P(e_j \mid \Pa(E_j))$; the estimate is $\hat{P}(q \mid \bm{e}) = \sum_s w_s \mathbb{1}[q_s = q] / \sum_s w_s$ (\cref{alg:lw}).
+  \item \textbf{Gibbs sampling} \cite{geman1984} runs 20 parallel Markov chains, initialized by likelihood weighting, that resample each non-evidence variable from its distribution given its Markov blanket,
+  $P(x_i \mid \mathrm{mb}(X_i)) \propto P(x_i \mid \Pa(X_i)) \prod_{C \in \mathrm{Ch}(X_i)} P(c \mid \Pa(C))$,
+  and discards a burn-in of 100 sweeps.
+\end{itemize}
+
+\begin{algorithm}[H]
+  \caption{Likelihood weighting for $P(Q \mid \bm{e})$}
+  \label{alg:lw}
+  \KwIn{network, query $Q$, evidence $\bm{e}$, number of samples $N$}
+  $W[q] \leftarrow 0$ for every state $q$ of $Q$\;
+  \For{$s = 1, \dots, N$}{
+    $w \leftarrow 1$\;
+    \For{$X_i$ in topological order}{
+      \eIf{$X_i \in \mathrm{vars}(\bm{e})$}{
+        $x_i \leftarrow e_i$;\quad $w \leftarrow w \cdot P(e_i \mid \pa_i)$\;
+      }{
+        sample $x_i \sim P(X_i \mid \pa_i)$\;
+      }
+    }
+    $W[x_Q] \leftarrow W[x_Q] + w$\;
+  }
+  \Return $W / \sum_q W[q]$\;
+\end{algorithm}
+
+\subsubsection{Classification with a Bayesian network}
+For every test applicant, the network computes $P(\text{default} \mid \text{observed features})$ exactly by variable elimination.
+Rows with identical evidence share one inference call.
+The decision threshold is tuned for F2 on a validation split, exactly as for the other model families, so that all three families are compared under the same rule.
