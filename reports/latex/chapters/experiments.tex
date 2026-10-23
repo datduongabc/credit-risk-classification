@@ -1,0 +1,53 @@
+\section{Experiments and results}
+\label{sec:experiments}
+
+\subsection{Setup}
+SKELETON
+
+\subsection{Ablation studies of the traditional pipeline}
+\subsubsection{Imputation}
+\input{../generated/tab_suite_imputation.tex}
+\begin{figure}[H]\centering\includegraphics[width=0.9\linewidth]{suite_imputation.pdf}\caption{Imputation.}\label{fig:suite_imputation}\end{figure}
+\subsubsection{Scaling}
+\input{../generated/tab_suite_scaling.tex}
+\begin{figure}[H]\centering\includegraphics[width=0.9\linewidth]{suite_scaling.pdf}\caption{Scaling.}\label{fig:suite_scaling}\end{figure}
+\subsubsection{Outliers and feature engineering}
+\input{../generated/tab_suite_outlier_fe.tex}
+\begin{figure}[H]\centering\includegraphics[width=0.9\linewidth]{suite_outlier_fe.pdf}\caption{Outliers.}\label{fig:suite_outlier_fe}\end{figure}
+\subsubsection{Encoding}
+\input{../generated/tab_suite_encoding.tex}
+\subsubsection{Dimensionality}
+\input{../generated/tab_suite_dimensionality.tex}
+\begin{figure}[H]\centering\includegraphics[width=0.9\linewidth]{suite_dimensionality.pdf}\caption{Dimensionality.}\label{fig:suite_dimensionality}\end{figure}
+\subsubsection{Imbalance}
+\input{../generated/tab_suite_imbalance.tex}
+\begin{figure}[H]\centering\includegraphics[width=0.9\linewidth]{suite_imbalance.pdf}\caption{Imbalance.}\label{fig:suite_imbalance}\end{figure}
+
+\subsection{Tuned models}
+\input{../generated/tab_tuning.tex}
+\input{../generated/tab_test_traditional.tex}
+\begin{figure}[H]\centering\includegraphics[width=\linewidth]{roc_pr_traditional.pdf}\caption{ROC.}\label{fig:roc_trad}\end{figure}
+\begin{figure}[H]\centering\includegraphics[width=\linewidth]{confusion_traditional.pdf}\caption{Confusion.}\label{fig:confusion}\end{figure}
+\begin{figure}[H]\centering\includegraphics[width=0.7\linewidth]{importance_best.pdf}\caption{Importance.}\label{fig:importance}\end{figure}
+
+\subsection{Deep learning}
+\input{../generated/tab_mlp.tex}
+\input{../generated/tab_deep.tex}
+\begin{figure}[H]\centering\includegraphics[width=0.6\linewidth]{mlp_training.pdf}\caption{MLP.}\label{fig:mlp_training}\end{figure}
+\begin{figure}[H]\centering\includegraphics[width=0.6\linewidth]{tabnet_importance.pdf}\caption{TabNet.}\label{fig:tabnet}\end{figure}
+\begin{figure}[H]\centering\includegraphics[width=\linewidth]{roc_pr_traditional_vs_deep.pdf}\caption{Trad vs deep.}\label{fig:roc_deep}\end{figure}
+
+\subsection{Bayesian network}
+\input{../generated/tab_bn_sensitivity.tex}
+\input{../generated/tab_bn_results.tex}
+\begin{figure}[H]\centering\includegraphics[width=\linewidth]{bn_structures.pdf}\caption{Structures.}\label{fig:bn_structures}\end{figure}
+\begin{figure}[H]\centering\includegraphics[width=0.6\linewidth]{bn_bic_trace.pdf}\caption{BIC.}\label{fig:bic}\end{figure}
+\input{../generated/tab_bn_queries.tex}
+\input{../generated/tab_bn_inference.tex}
+\input{../generated/tab_bn_acceptance.tex}
+\begin{figure}[H]\centering\includegraphics[width=\linewidth]{bn_inference_error.pdf}\caption{Inference.}\label{fig:bn_inference}\end{figure}
+
+\subsection{Overall}
+\input{../generated/tab_overall.tex}
+\begin{figure}[H]\centering\includegraphics[width=0.8\linewidth]{overall_pr_auc.pdf}\caption{Overall.}\label{fig:overall}\end{figure}
+Best: \BestModel{} \BestPrAuc{} \BestFTwo{} \BnBins{} \VeMs{}.

@@ -7,28 +7,37 @@ This section describes the evaluation protocol shared by all experiments and the
 \begin{figure}[H]
   \centering
   \begin{tikzpicture}[
-      node distance=0.55cm and 0.5cm,
-      box/.style={draw, rounded corners, align=center, font=\footnotesize, minimum height=0.9cm, text width=2.5cm, fill=#1},
-      box/.default=blue!8,
+      font=\footnotesize,
+      box/.style={draw, rounded corners, align=center, minimum height=1.1cm, fill=#1},
+      box/.default=gray!12,
       arr/.style={-{Stealth[length=2mm]}, thick}
     ]
-    \node[box=gray!15] (raw) {Raw CSV\\(Kaggle, 32{,}581 rows)};
-    \node[box=gray!15, right=of raw] (clean) {Rule-based cleaning\\duplicates, impossible values};
-    \node[box=gray!15, right=of clean] (split) {Stratified split\\80\% train / 20\% test};
-    \node[box, below=1.1cm of raw] (trad) {Traditional pipeline\\impute $\to$ engineer $\to$ clip $\to$ encode $\to$ scale $\to$ select/PCA $\to$ resample $\to$ classifier};
-    \node[box=orange!12, right=of trad] (dl) {Deep pipeline\\impute, scale, integer codes $\to$ embeddings $\to$ MLP / TabNet};
-    \node[box=green!10, right=of dl] (bn) {Bayesian network\\quantile bins $\to$ structure $\to$ CPTs $\to$ inference};
-    \node[box=gray!15, below=1.1cm of dl] (eval) {Common evaluation\\5-fold CV on train, F2 threshold, test set: PR-AUC, ROC-AUC, F2, recall, precision};
-    \node[box=gray!15, right=of eval] (feat) {Saved features\\\code{.npy} / \code{.h5}};
+    % Row 1: shared data preparation
+    \node[box, text width=3.4cm] (raw) at (-5, 0) {Raw CSV\\Kaggle, 32{,}581 loans};
+    \node[box, text width=3.4cm] (clean) at (0, 0) {Rule-based cleaning\\duplicates, impossible values};
+    \node[box, text width=3.4cm] (split) at (5, 0) {Stratified split\\80\% train / 20\% test};
     \draw[arr] (raw) -- (clean);
     \draw[arr] (clean) -- (split);
-    \draw[arr] (split.south) -- ++(0,-0.4) -| (trad.north);
-    \draw[arr] (split.south) -- ++(0,-0.4) -| (dl.north);
-    \draw[arr] (split.south) -- (bn.north);
-    \draw[arr] (trad.south) |- (eval.west);
-    \draw[arr] (dl) -- (eval);
-    \draw[arr] (bn.south) |- (eval.east);
-    \draw[arr, dashed] (trad.south) -- ++(0,-1.75) -| (feat.south);
+    % Row 2: the three model families
+    \node[box=blue!8, text width=4.3cm, minimum height=2.2cm] (trad) at (-5, -3)
+      {\textbf{Traditional pipeline}\\impute, engineer, clip, encode, scale, select / PCA, resample, classifier (8 models)};
+    \node[box=orange!12, text width=4.3cm, minimum height=2.2cm] (dl) at (0, -3)
+      {\textbf{Deep learning pipeline}\\impute and scale numerics, integer codes, entity embeddings, MLP / TabNet};
+    \node[box=green!10, text width=4.3cm, minimum height=2.2cm] (bn) at (5, -3)
+      {\textbf{Bayesian network}\\quantile bins, structure learning, CPTs, exact and approximate inference};
+    \coordinate (bus) at (0, -1.25);
+    \draw[thick] (split.south) |- (bus -| trad.north);
+    \draw[thick] (bus -| split.south) -- (bus -| trad.north);
+    \draw[arr] (bus -| trad.north) -- (trad.north);
+    \draw[arr] (bus -| dl.north) -- (dl.north);
+    \draw[arr] (bus -| bn.north) -- (bn.north);
+    % Row 3: shared evaluation and outputs
+    \node[box, minimum width=14.2cm] (eval) at (0, -6.2)
+      {\textbf{Common evaluation}: 5-fold stratified CV on the training set, decision threshold tuned for F2,\\
+       one final test-set evaluation (PR-AUC, ROC-AUC, F2, recall, precision); features saved as \texttt{.npy} / \texttt{.h5}};
+    \draw[arr] (trad.south) -- (trad.south |- eval.north);
+    \draw[arr] (dl.south) -- (dl.south |- eval.north);
+    \draw[arr] (bn.south) -- (bn.south |- eval.north);
   \end{tikzpicture}
   \caption{Overview of the project: one cleaned and split dataset feeds three model families that share the same evaluation protocol.}
   \label{fig:architecture}
@@ -66,12 +75,12 @@ We consequently
   \item rank models and select hyper-parameters by \textbf{PR-AUC}, a threshold-free measure that, unlike ROC-AUC, is sensitive to performance on the minority class \cite{saito2015}; and
   \item choose each model's operating threshold to maximize \textbf{F2} ($\beta = 2$ in \cref{eq:fbeta}), which weights recall twice as much as precision \cite{rijsbergen1979}.
 \end{enumerate}
-The threshold is tuned by internal cross-validation on the training set (\code{TunedThresholdClassifierCV}) for the traditional models, and on a held-out 15\% validation split of the training set for the neural networks and Bayesian networks.
+The threshold is tuned by internal cross-validation on the training set (\ident{TunedThresholdClassifierCV}) for the traditional models, and on a held-out 15\% validation split of the training set for the neural networks and Bayesian networks.
 
 \subsection{Traditional machine learning pipeline}
 \label{subsec:trad}
 
-The pipeline is assembled by a single function from a declarative \code{PipelineConfig}, shown in \cref{lst:config}.
+The pipeline is assembled by a single function from a declarative \ident{PipelineConfig}, shown in \cref{lst:config}.
 All components are standard scikit-learn \cite{sklearn} or imbalanced-learn \cite{imblearn} classes, except two small transformers that have no library equivalent: grade-wise median imputation and IQR clipping.
 
 \begin{listing}[H]
@@ -102,7 +111,7 @@ pipe = build_pipeline(PipelineConfig(imputer="group_median", scaler="minmax",
 \subsubsection{Missing-value imputation}
 Five strategies are available.
 \emph{Mean} and \emph{median} imputation replace a missing value by a training statistic of its column.
-\emph{Grade-wise median} imputation fills \code{loan_int_rate} with the median rate of the applicant's loan grade, which the EDA shows to be the main driver of the rate (\cref{fig:rate_grade}).
+\emph{Grade-wise median} imputation fills \ident{loan_int_rate} with the median rate of the applicant's loan grade, which the EDA shows to be the main driver of the rate (\cref{fig:rate_grade}).
 \emph{KNN} imputation \cite{troyanskaya2001} averages the five nearest neighbours in standardized feature space.
 \emph{Iterative} imputation (MICE) \cite{mice} regresses each incomplete column on the others in round-robin fashion.
 Optionally, binary missing-value indicators are appended so that the model can exploit informative missingness \cite{rubin1987}.
@@ -112,12 +121,12 @@ Four domain features can be added: $\log(1+\text{income})$, $\log(1+\text{amount
 Outliers are handled by IQR winsorizing, which clips every value $x$ of a column to $[Q_1 - 1.5\,\mathrm{IQR},\; Q_3 + 1.5\,\mathrm{IQR}]$ with quartiles learned on the training fold, or by a $\log(1+x)$ transform of all numeric columns.
 
 \subsubsection{Encoding and scaling}
-Nominal variables (\code{person_home_ownership}, \code{loan_intent}, \code{cb_person_default_on_file}) are one-hot encoded.
+Nominal variables (\ident{person_home_ownership}, \ident{loan_intent}, \ident{cb_person_default_on_file}) are one-hot encoded.
 The loan grade has a natural order A~$<$~B~$<\dots<$~G, so it can be encoded either ordinally (0--6) or one-hot.
 Numeric features can be standardized ($z = (x - \mu)/\sigma$), min-max scaled to a configurable range $[a, b]$ via $x' = a + (b - a)(x - x_{\min})/(x_{\max} - x_{\min})$, or robust-scaled with the median and IQR.
 
 \subsubsection{Feature selection and dimensionality reduction}
-\code{SelectKBest} keeps the $k$ encoded features with the highest mutual information with the target.
+\ident{SelectKBest} keeps the $k$ encoded features with the highest mutual information with the target.
 PCA \cite{jolliffe2016} projects the scaled features onto the leading principal components that together retain a chosen fraction of the variance (80\%, 90\%, 95\% or 99\%).
 
 \subsubsection{Class imbalance}
@@ -175,12 +184,13 @@ We use $n_d = n_a = 16$, four steps, relaxation $\gamma = 1.5$, 4-dimensional ca
 \subsection{Bayesian network (extension for the talented-engineering program)}
 \label{subsec:bn}
 
-A Bayesian network (BN) represents a joint distribution over discrete variables $X_1, \dots, X_n$ by a directed acyclic graph $G$ and one conditional probability table (CPT) per node \cite{koller2009}:
+A Bayesian network (BN) \cite{koller2009} describes the joint distribution of discrete variables $X_1, \dots, X_n$ with two ingredients.
+A directed acyclic graph $G$ encodes the conditional independences, and each node carries a conditional probability table (CPT) given its parents:
 \begin{equation}
   P(X_1, \dots, X_n) = \prod_{i=1}^{n} P\big(X_i \mid \Pa_G(X_i)\big).
   \label{eq:bn_factorization}
 \end{equation}
-Everything below is implemented from scratch with NumPy in \code{modules/creditrisk/bayesnet/}.
+Everything below is implemented from scratch with NumPy in \ident{modules/creditrisk/bayesnet/}.
 \Cref{tab:bn_modules} maps the components to files.
 
 \begin{table}[H]
@@ -190,12 +200,12 @@ Everything below is implemented from scratch with NumPy in \code{modules/creditr
     \toprule
     \textbf{File} & \textbf{Content} \\
     \midrule
-    \code{graph.py} & DAG with cycle detection on insertion, Kahn's topological sort, Markov blanket \\
-    \code{factor.py} & Discrete factor with product, marginalization (sum-out) and evidence reduction \\
-    \code{network.py} & CPT estimation, log-likelihood, vectorized ancestral sampling \\
-    \code{structure.py} & Naive Bayes, TAN (Chow-Liu), BIC hill climbing, expert DAG \\
-    \code{inference.py} & Variable elimination, enumeration, rejection sampling, likelihood weighting, Gibbs sampling \\
-    \code{discretize.py} & Quantile binning of numeric features learned on the training split \\
+    \ident{graph.py} & DAG with cycle detection on insertion, Kahn's topological sort, Markov blanket \\
+    \ident{factor.py} & Discrete factor with product, marginalization (sum-out) and evidence reduction \\
+    \ident{network.py} & CPT estimation, log-likelihood, vectorized ancestral sampling \\
+    \ident{structure.py} & Naive Bayes, TAN (Chow-Liu), BIC hill climbing, expert DAG \\
+    \ident{inference.py} & Variable elimination, enumeration, rejection sampling, likelihood weighting, Gibbs sampling \\
+    \ident{discretize.py} & Quantile binning of numeric features learned on the training split \\
     \bottomrule
   \end{tabularx}
   \caption{Bayesian-network modules written for this project.}

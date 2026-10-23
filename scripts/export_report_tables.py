@@ -87,7 +87,6 @@ def main() -> None:
     )
 
     sens = pd.read_csv(R / "bn_sensitivity.csv")
-    bn_bins = int(sens.groupby("n_bins")["pr_auc"].mean().idxmax())
     latex_table(
         sens.pivot_table(index=["n_bins", "alpha"], columns="structure", values="pr_auc").reset_index(),
         "tab_bn_sensitivity", "Bayesian networks: validation PR-AUC by number of bins and Dirichlet pseudo-count $\\alpha$.",
@@ -95,13 +94,15 @@ def main() -> None:
     )
     bn = pd.read_csv(R / "bn_classification.csv")
     latex_table(
-        bn[["structure", "edges", "parameters", "test_loglik", "pr_auc", "roc_auc", *TUNED]].rename(
-            columns={**TUNED, "test_loglik": "test log-lik."}),
-        "tab_bn_results", f"Bayesian-network structures on the test set ({bn_bins} bins, $\\alpha = 1$).", "tab:bn_results",
+        bn[["structure", "n_bins", "alpha", "edges", "parameters", "test_loglik", "pr_auc", "roc_auc", *TUNED]].rename(
+            columns={**TUNED, "test_loglik": "test log-lik.", "n_bins": "bins"}),
+        "tab_bn_results",
+        "Bayesian-network structures on the test set, each with the bins and $\\alpha$ selected on validation data.",
+        "tab:bn_results",
         bold_max=["pr_auc", "roc_auc"], size="\\scriptsize", float_fmt="{:.4f}",
     )
     queries = pd.read_csv(R / "bn_queries.csv")
-    latex_table(queries, "tab_bn_queries", "Exact queries on the expert network (variable elimination).", "tab:bn_queries")
+    latex_table(queries, "tab_bn_queries", "Exact answers of two networks (variable elimination) against the empirical frequency in the training data; support is the number of training rows matching the evidence.", "tab:bn_queries")
 
     inf = pd.read_csv(R / "bn_inference.csv")
     approx = inf[inf.method != "Variable elimination"]
@@ -131,7 +132,7 @@ def main() -> None:
         "n_train": len(X_train), "n_test": len(X_test), "default_rate": float(y_train.mean()),
         "best_model": MODEL_LABELS[best.key], "best_pr_auc": float(best.pr_auc),
         "best_f_two": float(best.f2_tuned), "best_recall": float(best.recall_tuned),
-        "best_precision": float(best.precision_tuned), "bn_bins": bn_bins,
+        "best_precision": float(best.precision_tuned),
         "ve_ms": f"{1000 * ve_time.max():.1f}",
     })
     print(sorted(p.name for p in config.TABLES_DIR.glob("*.tex")))

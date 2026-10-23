@@ -529,7 +529,7 @@ Implemented from scratch in `modules/creditrisk/bayesnet/`:
 
 Numeric features are discretized into quantile bins learned on the training split.
 
-### 7.1 Discretization granularity and smoothing (validation split of the training set)
+### 7.1 Discretization granularity and smoothing, chosen per structure on a validation split of the training set
 """
 )
 code(
@@ -537,15 +537,16 @@ code(
 bn_sens = bnx.run_sensitivity(X_train, y_train)
 sens_table = bn_sens.pivot_table(index=["n_bins", "alpha"], columns="structure", values="pr_auc")
 display(sens_table.round(4))
-BN_BINS = int(bn_sens.groupby("n_bins")["pr_auc"].mean().idxmax())
-print("Selected number of bins:", BN_BINS)
+# Each structure gets the (bins, alpha) that maximizes its own validation PR-AUC.
+BN_SETTINGS = bnx.select_settings(bn_sens)
+print("Selected (n_bins, alpha) per structure:", BN_SETTINGS)
 """
 )
 md("### 7.2 Structures and classification performance on the test set")
 code(
     """
-bn_results, bn_models, disc = bnx.run_classification(X_train, y_train, X_test, y_test, n_bins=BN_BINS)
-display(bn_results[["structure", "edges", "parameters", "test_loglik", "pr_auc", "roc_auc", "threshold", "f2_tuned", "recall_tuned", "precision_tuned", "inference_time"]].round(4))
+bn_results, bn_models = bnx.run_classification(X_train, y_train, X_test, y_test, settings=BN_SETTINGS)
+display(bn_results[["structure", "n_bins", "alpha", "edges", "parameters", "test_loglik", "pr_auc", "roc_auc", "threshold", "f2_tuned", "recall_tuned", "precision_tuned", "inference_time"]].round(4))
 """
 )
 code(
@@ -560,13 +561,22 @@ ax.set_xlabel("hill-climbing step"); ax.set_ylabel("BIC score"); ax.set_title("S
 fig.tight_layout(); reporting.save_figure(fig, "bn_bic_trace"); plt.show()
 """
 )
-md("### 7.3 Reasoning with the network (exact queries by variable elimination)")
+md(
+    """
+### 7.3 Reasoning with the networks (exact queries by variable elimination)
+Predictive queries (cause to effect) and diagnostic queries (effect to cause), answered exactly. The empirical
+column gives the conditional frequency in the training data. A network whose answers drift from it makes an
+independence assumption that the data contradict.
+"""
+)
 code(
     """
 bn_best_name = bn_results.sort_values("pr_auc", ascending=False).iloc[0]["structure"]
-queries = bnx.example_queries(bn_models["Expert DAG"]["bn"], disc.states_)
-queries.to_csv(config.RESULTS_DIR / "bn_queries.csv", index=False)
 print("Best BN classifier:", bn_best_name)
+# Compare exact answers of the best (TAN) and the expert network with the empirical frequencies.
+queries = bnx.example_queries({name: (bn_models[name]["bn"], bn_models[name]["disc"].states_) for name in ("TAN", "Expert DAG")},
+                              X_train, y_train)
+queries.to_csv(config.RESULTS_DIR / "bn_queries.csv", index=False)
 queries.round(4)
 """
 )
@@ -579,8 +589,8 @@ estimate of P(default | e) with the exact value from variable elimination.
 )
 code(
     """
-D_test = disc.transform(X_test)
-inf = bnx.run_inference_comparison(bn_models["Expert DAG"]["bn"], D_test, verbose=False)
+tan = bn_models["TAN"]
+inf = bnx.run_inference_comparison(tan["bn"], tan["disc"].transform(X_test), verbose=False)
 display(inf.round(4))
 approx = inf[inf.method != "Variable elimination"]
 fig, axes = plt.subplots(1, 3, figsize=(16, 4.2), sharey=True)

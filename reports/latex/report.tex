@@ -10,6 +10,7 @@
 \usepackage{bm}
 \usepackage[ruled,vlined,linesnumbered]{algorithm2e}
 \usetikzlibrary{arrows.meta,positioning,shapes.geometric,fit,calc}
+\usepackage{xurl}
 \usepackage[nameinlink]{cleveref}
 
 \graphicspath{{../figures/}{graphics/}}
@@ -28,7 +29,8 @@
 \AtBeginDocument{\counterwithin{lstlisting}{section}}
 \AtBeginDocument{\counterwithin{algocf}{section}}
 
-\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+% Code identifiers: typewriter text that may break at any character (xurl), and robust in captions.
+\DeclareRobustCommand{\ident}[1]{\nolinkurl{#1}}
 \newcommand{\Fbeta}{F_{\beta}}
 \DeclareMathOperator*{\argmax}{arg\,max}
 \DeclareMathOperator{\Pa}{Pa}
@@ -53,7 +55,7 @@
 
 \begin{center}
   \small
-  \begin{tabularx}{\linewidth}{lXc}
+  \begin{tabularx}{\linewidth}{l>{\raggedright\arraybackslash}Xc}
     \toprule
     \textbf{Work item} & \textbf{Description} & \textbf{Done} \\
     \midrule

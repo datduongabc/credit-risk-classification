@@ -26,19 +26,19 @@ tests/             pytest unit tests
 
 \paragraph{Running.}
 On Google Colab, open the notebook link from \cref{sec:intro} and choose \emph{Runtime} $\to$ \emph{Run all}.
-Locally, install \code{requirements.txt} and PyTorch, then execute the notebook with Jupyter.
-The report is compiled with \code{latexmk -pdf -shell-escape report.tex} in \code{reports/latex}.
+Locally, install \ident{requirements.txt} and PyTorch, then execute the notebook with Jupyter.
+The report is compiled with \ident{latexmk -pdf -shell-escape report.tex} in \ident{reports/latex}.
 
 \section{Unit tests}
 \label{app:tests}
-The package ships 21 \code{pytest} tests.
+The package ships 21 \ident{pytest} tests.
 They run in a few seconds and cover the following properties.
 \begin{itemize}[nosep]
   \item The DAG rejects cycles, and its topological order and Markov blankets are correct.
   \item Variable elimination equals brute-force enumeration on random multi-parent networks, for queries with and without evidence (tolerance $10^{-12}$).
   \item Rejection sampling, likelihood weighting and Gibbs sampling converge to the exact posterior (tolerance 0.01).
   \item Parameter learning recovers the generating CPTs from \num{200000} samples.
-  \item A Naive Bayes network gives the same posteriors as scikit-learn's \code{CategoricalNB}.
+  \item A Naive Bayes network gives the same posteriors as scikit-learn's \ident{CategoricalNB}.
   \item Missing evidence is marginalized correctly.
   \item TAN and hill climbing produce valid DAGs, and the BIC trace is monotone.
   \item Cleaning, the grade-wise imputer and the IQR clipper behave as specified.
@@ -48,7 +48,7 @@ They run in a few seconds and cover the following properties.
 \section{Saved feature files}
 \label{app:features}
 \Cref{tab:features} lists the feature sets written by the notebook.
-Every set is stored as separate \code{.npy} arrays and also inside the single file \code{features/credit_features.h5}, with one HDF5 group per set.
+Every set is stored as separate \ident{.npy} arrays and also inside the single file \ident{features/credit_features.h5}, with one HDF5 group per set.
 
 \begin{table}[H]
   \centering
@@ -57,12 +57,12 @@ Every set is stored as separate \code{.npy} arrays and also inside the single fi
     \toprule
     \textbf{Folder / HDF5 group} & \textbf{Content} \\
     \midrule
-    \code{traditional_logreg} & Output of the tuned logistic-regression preprocessing (imputed, engineered, clipped, one-hot, standardized), with feature names in \code{meta.json} \\
-    \code{traditional_<best>} & Output of the preprocessing of the best traditional model \\
-    \code{traditional_pca95} & PCA projection retaining 95\% of the variance, with explained-variance ratios \\
-    \code{deep_mlp_embeddings} & 64-dimensional penultimate-layer representation of the reference MLP \\
+    \ident{traditional_logreg} & Output of the tuned logistic-regression preprocessing (imputed, engineered, clipped, one-hot, standardized), with feature names in \ident{meta.json} \\
+    \ident{traditional_<best>} & Output of the preprocessing of the best traditional model \\
+    \ident{traditional_pca95} & PCA projection retaining 95\% of the variance, with explained-variance ratios \\
+    \ident{deep_mlp_embeddings} & 64-dimensional penultimate-layer representation of the reference MLP \\
     \bottomrule
   \end{tabularx}
-  \caption{Extracted feature sets (\code{X_train}, \code{X_test}, \code{y_train}, \code{y_test} in each).}
+  \caption{Extracted feature sets (\ident{X_train}, \ident{X_test}, \ident{y_train}, \ident{y_test} in each).}
   \label{tab:features}
 \end{table}

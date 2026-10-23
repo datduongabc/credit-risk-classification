@@ -41,48 +41,73 @@ SHORT = {
 }
 
 
-def learn_structures(data: np.ndarray, variables: list[str], cards: dict[str, int], max_parents: int = 3) -> dict:
-    t0 = time.perf_counter()
-    hc, trace = hill_climb_dag(data, variables, cards, max_parents=max_parents)
-    hc_time = time.perf_counter() - t0
-    return {
-        "Naive Bayes": (naive_bayes_dag(variables, TARGET), {}),
-        "TAN": (tan_dag(data, variables, TARGET, cards), {}),
-        "Hill-climb BIC": (hc, {"trace": trace, "time": hc_time}),
-        "Expert DAG": (expert_dag(variables), {}),
-    }
+STRUCTURES = ("Naive Bayes", "TAN", "Hill-climb BIC", "Expert DAG")
 
 
-def run_classification(X_train, y_train, X_test, y_test, n_bins=5, alpha=1.0, max_parents=3, verbose=True, save=True):
-    """Fit each structure on the training split and evaluate P(default | features) on test."""
-    disc = Discretizer(n_bins).fit(X_train)
-    variables, states = disc.variables_, disc.states_
-    cards = {v: len(states[v]) for v in variables}
-    D_train = disc.transform(X_train, y_train)
-    D_test = disc.transform(X_test)  # target column left as -1 (unknown)
-    structures = learn_structures(D_train, variables, cards, max_parents)
+def learn_structure(name: str, data: np.ndarray, variables: list[str], cards: dict[str, int], max_parents: int = 3):
+    """Return (DAG, info) for one named structure; info holds the BIC trace for hill climbing."""
+    if name == "Naive Bayes":
+        return naive_bayes_dag(variables, TARGET), {}
+    if name == "TAN":
+        return tan_dag(data, variables, TARGET, cards), {}
+    if name == "Hill-climb BIC":
+        t0 = time.perf_counter()
+        dag, trace = hill_climb_dag(data, variables, cards, max_parents=max_parents)
+        return dag, {"trace": trace, "time": time.perf_counter() - t0}
+    if name == "Expert DAG":
+        return expert_dag(variables), {}
+    raise ValueError(f"unknown structure {name!r}")
 
+
+def select_settings(sensitivity: pd.DataFrame) -> dict[str, tuple[int, float]]:
+    """Best (n_bins, alpha) per structure on the validation split.
+
+    Each structure gets its own setting: denser graphs (TAN) overfit with fine bins, while
+    sparse ones (Naive Bayes, hill climbing with the BIC penalty) can afford more bins, so a
+    single shared setting would favour some structures at the expense of others.
+    """
+    best = sensitivity.loc[sensitivity.groupby("structure")["pr_auc"].idxmax()]
+    return {r.structure: (int(r.n_bins), float(r.alpha)) for r in best.itertuples()}
+
+
+def run_classification(
+    X_train, y_train, X_test, y_test, settings=None, n_bins=5, alpha=1.0, max_parents=3, verbose=True, save=True
+):
+    """Fit each structure on the training split and evaluate P(default | features) on test.
+
+    ``settings`` maps a structure name to its (n_bins, alpha); without it every structure
+    uses ``n_bins`` and ``alpha``.
+    """
+    settings = settings or {name: (n_bins, alpha) for name in STRUCTURES}
     # Validation split of the training data picks each network's F2 threshold.
     tr_idx, val_idx = train_test_split(
-        np.arange(len(D_train)), test_size=0.15, stratify=y_train, random_state=config.SEED
+        np.arange(len(X_train)), test_size=0.15, stratify=y_train, random_state=config.SEED
     )
-    D_val = D_train[val_idx].copy()
-    D_val[:, variables.index(TARGET)] = -1
+    rows, models, discs = [], {}, {}
+    for name, (bins, a) in settings.items():
+        if bins not in discs:
+            disc = Discretizer(bins).fit(X_train)
+            discs[bins] = (disc, disc.transform(X_train, y_train), disc.transform(X_test))
+        disc, D_train, D_test = discs[bins]
+        variables, states = disc.variables_, disc.states_
+        cards = {v: len(states[v]) for v in variables}
+        dag, info = learn_structure(name, D_train, variables, cards, max_parents)
+        D_val = D_train[val_idx].copy()
+        D_val[:, variables.index(TARGET)] = -1
 
-    rows, models = [], {}
-    for name, (dag, info) in structures.items():
-        sub = BayesianNetwork(dag, states).fit(D_train[tr_idx], alpha)
+        sub = BayesianNetwork(dag, states).fit(D_train[tr_idx], a)
         thr = f2_threshold(np.asarray(y_train)[val_idx], predict_proba(sub, D_val, TARGET)[:, 1])
-        bn = BayesianNetwork(dag, states).fit(D_train, alpha)
+        bn = BayesianNetwork(dag, states).fit(D_train, a)
         t0 = time.perf_counter()
         proba = predict_proba(bn, D_test, TARGET)[:, 1]
         infer_time = time.perf_counter() - t0
-        D_test_full = disc.transform(X_test, y_test)
         row = {
             "structure": name,
+            "n_bins": bins,
+            "alpha": a,
             "edges": len(dag.edges),
             "parameters": bn.n_parameters(),
-            "test_loglik": bn.log_likelihood(D_test_full),
+            "test_loglik": bn.log_likelihood(disc.transform(X_test, y_test)),
             "inference_time": infer_time,
             "threshold": thr,
             **compute_metrics(y_test, (proba >= 0.5).astype(int), proba),
@@ -91,17 +116,17 @@ def run_classification(X_train, y_train, X_test, y_test, n_bins=5, alpha=1.0, ma
         if "time" in info:
             row["learn_time"] = info["time"]
         rows.append(row)
-        models[name] = {"bn": bn, "proba": proba, "threshold": thr, **info}
+        models[name] = {"bn": bn, "disc": disc, "proba": proba, "threshold": thr, **info}
         if verbose:
             print(
-                f"[BN] {name:15s} edges={row['edges']:2d} params={row['parameters']:5d} "
+                f"[BN] {name:15s} bins={bins:2d} alpha={a:<4g} edges={row['edges']:2d} params={row['parameters']:5d} "
                 f"PR-AUC={row['pr_auc']:.4f} F2(tuned)={row['f2_tuned']:.4f} ({infer_time:.1f}s)"
             )
     df = pd.DataFrame(rows)
     if save:
         config.ensure_dirs()
         df.to_csv(config.RESULTS_DIR / "bn_classification.csv", index=False)
-    return df, models, disc
+    return df, models
 
 
 def run_sensitivity(X_train, y_train, bins=(3, 5, 8, 12), alphas=(0.1, 1.0, 10.0)):
@@ -116,8 +141,8 @@ def run_sensitivity(X_train, y_train, bins=(3, 5, 8, 12), alphas=(0.1, 1.0, 10.0
     frames = []
     for b in bins:
         for a in alphas:
-            df, _, _ = run_classification(X_fit, y_fit, X_val, y_val, n_bins=b, alpha=a, verbose=False, save=False)
-            frames.append(df.assign(n_bins=b, alpha=a))
+            df, _ = run_classification(X_fit, y_fit, X_val, y_val, n_bins=b, alpha=a, verbose=False, save=False)
+            frames.append(df)
     out = pd.concat(frames, ignore_index=True)
     out.to_csv(config.RESULTS_DIR / "bn_sensitivity.csv", index=False)
     return out
@@ -178,32 +203,45 @@ def run_inference_comparison(
     return df
 
 
-def example_queries(bn: BayesianNetwork, states: dict) -> pd.DataFrame:
-    """Readable predictive and diagnostic queries answered exactly by variable elimination."""
-
-    def code(var, value):
-        return states[var].index(value)
-
-    rows = []
-
-    def add(desc, query, evidence, query_states=(1,)):
-        p = variable_elimination(bn, query, {k: code(k, v) for k, v in evidence.items()})
-        idx = [states[query].index(s) for s in query_states]
-        rows.append({"query": desc, "probability": float(p[idx].sum())})
-
-    add("P(default)", TARGET, {})
-    for g in ("A", "D", "G"):
-        add(f"P(default | grade={g})", TARGET, {"loan_grade": g})
-    add("P(default | home=RENT)", TARGET, {"person_home_ownership": "RENT"})
-    add("P(default | home=OWN)", TARGET, {"person_home_ownership": "OWN"})
-    add("P(default | grade=D, home=OWN)", TARGET, {"loan_grade": "D", "person_home_ownership": "OWN"})
-    add("P(default | intent=MEDICAL)", TARGET, {"loan_intent": "MEDICAL"})
-    add("P(default | intent=VENTURE)", TARGET, {"loan_intent": "VENTURE"})
+# (description, query variable, query states, evidence on raw values); all variables involved
+# are categorical, so the empirical frequency in the training data is directly comparable.
+QUERIES = [
+    ("P(default)", TARGET, (1,), {}),
+    ("P(default | grade=A)", TARGET, (1,), {"loan_grade": "A"}),
+    ("P(default | grade=D)", TARGET, (1,), {"loan_grade": "D"}),
+    ("P(default | grade=G)", TARGET, (1,), {"loan_grade": "G"}),
+    ("P(default | home=RENT)", TARGET, (1,), {"person_home_ownership": "RENT"}),
+    ("P(default | home=OWN)", TARGET, (1,), {"person_home_ownership": "OWN"}),
+    ("P(default | grade=D, home=OWN)", TARGET, (1,), {"loan_grade": "D", "person_home_ownership": "OWN"}),
+    ("P(default | intent=MEDICAL)", TARGET, (1,), {"loan_intent": "MEDICAL"}),
+    ("P(default | intent=VENTURE)", TARGET, (1,), {"loan_intent": "VENTURE"}),
     # Diagnostic (effect -> cause) queries: reasoning against the arrow direction.
-    add("P(prev_default=Y | default=1)", "cb_person_default_on_file", {TARGET: 1}, ("Y",))
-    add("P(prev_default=Y | default=0)", "cb_person_default_on_file", {TARGET: 0}, ("Y",))
-    add("P(grade in D..G | default=1)", "loan_grade", {TARGET: 1}, ("D", "E", "F", "G"))
-    add("P(grade in D..G | default=0)", "loan_grade", {TARGET: 0}, ("D", "E", "F", "G"))
+    ("P(prev_default=Y | default=1)", "cb_person_default_on_file", ("Y",), {TARGET: 1}),
+    ("P(prev_default=Y | default=0)", "cb_person_default_on_file", ("Y",), {TARGET: 0}),
+    ("P(grade in D..G | default=1)", "loan_grade", ("D", "E", "F", "G"), {TARGET: 1}),
+    ("P(grade in D..G | default=0)", "loan_grade", ("D", "E", "F", "G"), {TARGET: 0}),
+]
+
+
+def example_queries(models: dict, X_train: pd.DataFrame, y_train: pd.Series) -> pd.DataFrame:
+    """Answer QUERIES exactly (variable elimination) in each network and empirically.
+
+    ``models`` maps a label to a fitted network together with its discretizer's states; the
+    empirical column is the conditional frequency in the training data, so a large gap
+    reveals an independence assumption of that network that the data contradict.
+    """
+    df = X_train.assign(**{TARGET: np.asarray(y_train)})
+    rows = []
+    for desc, query, query_states, evidence in QUERIES:
+        mask = np.ones(len(df), dtype=bool)
+        for var, val in evidence.items():
+            mask &= (df[var] == val).to_numpy()
+        row = {"query": desc, "empirical": float(df.loc[mask, query].isin(query_states).mean()), "support": int(mask.sum())}
+        for label, (bn, states) in models.items():
+            ev = {k: states[k].index(v) for k, v in evidence.items()}
+            p = variable_elimination(bn, query, ev)
+            row[label] = float(p[[states[query].index(q) for q in query_states]].sum())
+        rows.append(row)
     return pd.DataFrame(rows)
 
 

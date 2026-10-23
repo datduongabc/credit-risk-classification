@@ -12,18 +12,18 @@ It is downloaded in the notebook from Kaggle's public, unauthenticated endpoint.
     \toprule
     \textbf{Column} & \textbf{Meaning} \\
     \midrule
-    \code{person_age} & Age of the applicant (years) \\
-    \code{person_income} & Annual income (USD) \\
-    \code{person_home_ownership} & RENT, MORTGAGE, OWN or OTHER \\
-    \code{person_emp_length} & Employment length (years) \\
-    \code{loan_intent} & Purpose: EDUCATION, MEDICAL, VENTURE, PERSONAL, DEBTCONSOLIDATION, HOMEIMPROVEMENT \\
-    \code{loan_grade} & Lender's risk grade from A (best) to G (worst) \\
-    \code{loan_amnt} & Requested amount (USD) \\
-    \code{loan_int_rate} & Interest rate (\%) \\
-    \code{loan_percent_income} & Loan amount divided by annual income \\
-    \code{cb_person_default_on_file} & Whether the credit bureau records a past default (Y/N) \\
-    \code{cb_person_cred_hist_length} & Length of the credit history (years) \\
-    \code{loan_status} & \textbf{Target}: 1 = default, 0 = non-default \\
+    \ident{person_age} & Age of the applicant (years) \\
+    \ident{person_income} & Annual income (USD) \\
+    \ident{person_home_ownership} & RENT, MORTGAGE, OWN or OTHER \\
+    \ident{person_emp_length} & Employment length (years) \\
+    \ident{loan_intent} & Purpose: EDUCATION, MEDICAL, VENTURE, PERSONAL, DEBTCONSOLIDATION, HOMEIMPROVEMENT \\
+    \ident{loan_grade} & Lender's risk grade from A (best) to G (worst) \\
+    \ident{loan_amnt} & Requested amount (USD) \\
+    \ident{loan_int_rate} & Interest rate (\%) \\
+    \ident{loan_percent_income} & Loan amount divided by annual income \\
+    \ident{cb_person_default_on_file} & Whether the credit bureau records a past default (Y/N) \\
+    \ident{cb_person_cred_hist_length} & Length of the credit history (years) \\
+    \ident{loan_status} & \textbf{Target}: 1 = default, 0 = non-default \\
     \bottomrule
   \end{tabularx}
   \caption{Columns of the Credit Risk Dataset.}
@@ -72,7 +72,7 @@ This moderate imbalance drives three design decisions:
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.5\linewidth]{eda_target.pdf}
-  \caption{Distribution of the target \code{loan_status}.}
+  \caption{Distribution of the target \ident{loan_status}.}
   \label{fig:target}
 \end{figure}
 
@@ -80,9 +80,9 @@ This moderate imbalance drives three design decisions:
 \Cref{fig:numeric} compares the class-conditional distributions after cleaning.
 Three features separate the classes clearly.
 \begin{itemize}[nosep]
-  \item \code{loan_percent_income}: defaulters typically borrow more than 30\% of their income, while most non-defaulters stay below 20\%.
-  \item \code{loan_int_rate}: defaulters concentrate at rates above 14\%.
-  \item \code{person_income}: defaulters have lower incomes (on the log scale).
+  \item \ident{loan_percent_income}: defaulters typically borrow more than 30\% of their income, while most non-defaulters stay below 20\%.
+  \item \ident{loan_int_rate}: defaulters concentrate at rates above 14\%.
+  \item \ident{person_income}: defaulters have lower incomes (on the log scale).
 \end{itemize}
 Age, employment length and credit-history length have nearly identical distributions in both classes.
 Most applicants are young (median age 26; 76\% are 30 or younger).
@@ -151,7 +151,7 @@ This is an interaction that tree ensembles can capture directly.
 
 \subsection{Missing values}
 \label{subsec:missing}
-Two columns have missing values: \code{person_emp_length} (895 rows, 2.75\%) and \code{loan_int_rate} (\num{3116} rows, 9.56\%).
+Two columns have missing values: \ident{person_emp_length} (895 rows, 2.75\%) and \ident{loan_int_rate} (\num{3116} rows, 9.56\%).
 They are missing together in only 68 rows.
 \Cref{fig:missing} shows that the two columns behave differently.
 \begin{itemize}
@@ -162,7 +162,7 @@ They are missing together in only 68 rows.
 \begin{figure}[H]
   \centering
   \includegraphics[width=\linewidth]{eda_missing.pdf}
-  \caption{Left: default rate when a value is missing or observed. Right: missing share of \code{loan_int_rate} per grade.}
+  \caption{Left: default rate when a value is missing or observed. Right: missing share of \ident{loan_int_rate} per grade.}
   \label{fig:missing}
 \end{figure}
 

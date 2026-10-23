@@ -6,10 +6,10 @@ Before granting a loan, a lender must estimate how likely the applicant is to de
 Approving a future defaulter loses the principal, while rejecting a reliable applicant only loses the interest margin, so the two kinds of error have very different costs.
 This report studies the problem as binary classification on the public Credit Risk Dataset \cite{kaggle_credit}.
 Each of its \num{32581} records describes one applicant (age, income, employment length, home ownership, credit history) and one loan (purpose, grade, amount, interest rate, loan-to-income ratio).
-The target \code{loan_status} equals 1 when the loan defaulted.
+The target \ident{loan_status} equals 1 when the loan defaulted.
 
 The dataset meets the constraints of the assignment for tabular data.
-It contains missing values (in \code{person_emp_length} and \code{loan_int_rate}), which calls for imputation.
+It contains missing values (in \ident{person_emp_length} and \ident{loan_int_rate}), which calls for imputation.
 It contains four categorical variables, which call for encoding.
 It is large enough for reliable cross-validation and a held-out test set of \num{6484} loans.
 
@@ -24,21 +24,21 @@ Following the assignment specification, the project pursues four objectives.
 
 \subsection{Contributions}
 \begin{itemize}
-  \item A reusable Python package (\code{modules/creditrisk}) that builds any pipeline variant from a declarative configuration. It is driven by a Google Colab notebook that runs end to end with \emph{Run all}.
+  \item A reusable Python package (\ident{modules/creditrisk}) that builds any pipeline variant from a declarative configuration. It is driven by a Google Colab notebook that runs end to end with \emph{Run all}.
   \item Six ablation studies on imputation, scaling, outliers and feature engineering, encoding, dimensionality reduction, and class imbalance, followed by grid-searched models with F2-tuned decision thresholds.
   \item A deep learning comparison with seven MLP variants and TabNet, and an analysis of the learned embeddings.
-  \item A from-scratch Bayesian-network library, verified by unit tests against brute-force enumeration and scikit-learn's \code{CategoricalNB}. It is used to compare four network structures and three sampling algorithms.
-  \item Saved feature sets (\code{.npy} and \code{.h5}) for every pipeline, and a public GitHub repository.
+  \item A from-scratch Bayesian-network library, verified by unit tests against brute-force enumeration and scikit-learn's \ident{CategoricalNB}. It is used to compare four network structures and three sampling algorithms.
+  \item Saved feature sets (\ident{.npy} and \ident{.h5}) for every pipeline, and a public GitHub repository.
 \end{itemize}
 
 \subsection{Deliverables and reproducibility}
-The submission follows the required layout: \code{notebooks/}, \code{modules/}, \code{reports/} and \code{features/}.
+The submission follows the required layout: \ident{notebooks/}, \ident{modules/}, \ident{reports/} and \ident{features/}.
 \begin{itemize}[nosep]
   \item Source code: \url{https://github.com/datduongabc/credit-risk-classification}
   \item Colab notebook: \url{https://colab.research.google.com/github/datduongabc/credit-risk-classification/blob/main/notebooks/credit_risk_pipeline.ipynb}
 \end{itemize}
 The notebook clones the repository, installs the missing libraries and downloads the dataset from Kaggle's public endpoint, without mounting any personal storage.
-Every number in this report is read from files that the notebook generates (\code{reports/generated/}).
+Every number in this report is read from files that the notebook generates (\ident{reports/generated/}).
 All randomness is seeded, so a re-run reproduces the tables.
 
 \subsection{Organization of the report}
